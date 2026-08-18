@@ -73,7 +73,14 @@ The evaluator reports per-model accuracy and a confusion matrix. Do not deploy a
 
 ## Telemetry and alerts
 
-The observability destinations named in `wrangler.jsonc` must already exist in the Cloudflare account. They are account-level resources, not created by this repository. Workers Observability export and reliable external alerting may require the Cloudflare Paid plan; verify the current account limits before deployment.
+The observability destinations named in `wrangler.jsonc` are account-level resources. Verify or create them before deployment with the same telemetry gateway used by the mirror workers:
+
+```sh
+DRY_RUN=true CLOUDFLARE_ACCOUNT_ID=... CLOUDFLARE_API_TOKEN=... \
+GATEWAY_INGEST_BEARER=... ./scripts/provision-observability.sh
+```
+
+Run without `DRY_RUN=true` after reviewing the destination names and gateway URL. Workers Observability export and reliable external alerting may require the Cloudflare Paid plan; verify the current account limits before deployment.
 
 The diagnostic scripts query only this Worker role:
 
