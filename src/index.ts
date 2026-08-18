@@ -292,14 +292,17 @@ function safeSecretEqual(left: string, right: string): boolean {
   return difference === 0;
 }
 
+function bearerToken(request: Request): string {
+  const header = request.headers.get("Authorization") ?? "";
+  return /^Bearer\s+(.+)$/i.exec(header)?.[1] ?? "";
+}
+
 function authorizedToken(token: string, env: Env): boolean {
   return Boolean(env.DEV_TOKEN) && safeSecretEqual(token, env.DEV_TOKEN);
 }
 
 function authorized(request: Request, env: Env): boolean {
-  const header = request.headers.get("Authorization") ?? "";
-  const match = /^Bearer\s+(.+)$/i.exec(header);
-  return Boolean(match) && authorizedToken(match?.[1] ?? "", env);
+  return authorizedToken(bearerToken(request), env);
 }
 
 function jsonResponse(data: unknown, status = 200): Response {
@@ -361,7 +364,7 @@ function inspectDraftModelInput(input: Record<string, unknown>): DraftModelInput
     images,
   };
 }
-function renderDraftHtml(result: TickResult, requestedAt: Date): string {
+function renderDraftHtml(result: TickResult, requestedAt: Date, devToken: string): string {
   if (!result.frame || !result.image || !result.classification || !result.decision) {
     throw new Error("Draft pipeline did not produce a complete result");
   }
@@ -397,11 +400,24 @@ function renderDraftHtml(result: TickResult, requestedAt: Date): string {
     figure { margin: 0; }
     figcaption { color: #9fb3c8; margin-bottom: 0.35rem; }
     code { overflow-wrap: anywhere; }
+    .controls { background: #1b2733; border-radius: 0.5rem; display: grid; gap: 0.75rem; margin: 1rem 0; padding: 1rem; }
+    .controls label { display: grid; gap: 0.25rem; }
+    .controls input { background: #101820; border: 1px solid #526779; border-radius: 0.25rem; color: #f5f7fa; padding: 0.5rem; }
+    .controls button { justify-self: start; padding: 0.5rem 1rem; }
   </style>
 </head>
 <body>
 <main>
   <h1>Draft post</h1>
+  <form class="controls" method="post" action="/draft">
+    <label>Timestamp (ISO-8601)
+      <input name="at" value="${htmlEscape(requestedAt.toISOString())}" required>
+    </label>
+    <label>Development token
+      <input name="token" type="password" value="${htmlEscape(devToken)}" autocomplete="current-password" required>
+    </label>
+    <button type="submit">Render another date</button>
+  </form>
   <details>
     <summary>AI model input${modelInput ? ` · ${modelInput.images.length} images` : ""}</summary>
     <dl>
@@ -462,7 +478,7 @@ function draftLoginHtml(atValue = "", message = ""): Response {
 </html>`);
 }
 
-async function draftResponse(env: Env, atValue: string | null): Promise<Response> {
+async function draftResponse(env: Env, atValue: string | null, devToken: string): Promise<Response> {
   if (!atValue) {
     return htmlResponse("<h1>Missing at timestamp</h1><p>Enter an ISO-8601 timestamp.</p>", 400);
   }
@@ -481,7 +497,7 @@ async function draftResponse(env: Env, atValue: string | null): Promise<Response
     if (result.status !== "success") {
       return htmlResponse(`<h1>Draft unavailable</h1><p>${htmlEscape(result.status)}</p>`, 502);
     }
-    return htmlResponse(renderDraftHtml(result, requestedAt));
+    return htmlResponse(renderDraftHtml(result, requestedAt, devToken));
   } catch (error) {
     return htmlResponse(`<h1>Draft pipeline failed</h1><pre>${htmlEscape(errorMessage(error))}</pre>`, 502);
   }
@@ -497,7 +513,7 @@ export default {
     if (url.pathname === "/draft") {
       if (request.method === "GET") {
         if (!authorized(request, env)) return draftLoginHtml(url.searchParams.get("at") ?? "");
-        return draftResponse(env, url.searchParams.get("at"));
+        return draftResponse(env, url.searchParams.get("at"), bearerToken(request));
       }
       if (request.method === "POST") {
         const form = await request.formData();
@@ -506,7 +522,7 @@ export default {
         if (typeof token !== "string" || !authorizedToken(token, env)) {
           return draftLoginHtml(typeof atValue === "string" ? atValue : "", "Invalid development token.");
         }
-        return draftResponse(env, typeof atValue === "string" ? atValue : null);
+        return draftResponse(env, typeof atValue === "string" ? atValue : null, token);
       }
       return htmlResponse("<h1>Method not allowed</h1>", 405);
     }
