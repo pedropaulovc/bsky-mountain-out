@@ -18,7 +18,7 @@
     }
   ],
   "vars": {
-    "MODEL_ID": "@cf/moondream3.1-9B-A2B",
+    "MODEL_ID": "@cf/moondream/moondream3.1-9B-A2B",
     "IMAGE_MODE": "stitched",
     "POSTING_ENABLED": "false",
     "DEV_TOKEN": ""
