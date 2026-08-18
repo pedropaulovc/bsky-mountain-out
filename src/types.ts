@@ -60,6 +60,7 @@ export interface Env {
   STATE: KVNamespace;
   BSKY_IDENTIFIER: string;
   BSKY_APP_PASSWORD: string;
+  BSKY_SERVICE_URL: string;
   MODEL_ID: string;
   IMAGE_MODE: ImageMode;
   POSTING_ENABLED: string;

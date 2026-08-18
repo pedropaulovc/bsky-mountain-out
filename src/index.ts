@@ -194,6 +194,7 @@ export async function runTick(env: Env, options: TickOptions = {}): Promise<Tick
         {
           identifier: env.BSKY_IDENTIFIER,
           appPassword: env.BSKY_APP_PASSWORD,
+          serviceUrl: env.BSKY_SERVICE_URL,
         },
         {
           image,

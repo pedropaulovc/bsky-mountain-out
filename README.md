@@ -21,7 +21,7 @@ Each image includes a visible source credit. Each Bluesky post includes descript
 - **Vision:** Workers AI, configurable with `MODEL_ID` (default `@cf/moondream/moondream3.1-9B-A2B`)
 - **State:** Workers KV
 - **Image source:** Space Needle PanoCam CDN (`spaceneedle.com/webcam`)
-- **Posting:** three direct AT Protocol XRPC requests; no Bluesky SDK
+- **Posting:** three direct AT Protocol XRPC requests to `BSKY_SERVICE_URL` (production uses `https://ismtrainierout.selfhosted.social`); no Bluesky SDK
 - **Telemetry:** Cloudflare Workers Observability export to the existing `azure-appi-logs` and `azure-appi-traces` destinations, then Application Insights
 - **Alerts:** Azure action group, error query alert, and a daylight heartbeat dead-man switch
 
