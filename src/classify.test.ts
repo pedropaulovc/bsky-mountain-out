@@ -55,5 +55,7 @@ describe("vision classification", () => {
     const alt = buildAltText("Photo of a hazy Seattle skyline that appears empty", false, "Aug 17, 2026 4:00 pm");
     expect(alt).toContain("Mount Rainier is not visible.");
     expect(alt).not.toMatch(/appears|Photo of/i);
+    const explicit = buildAltText("Mount Rainier is visible above the skyline. Clear sky.", true, "Aug 17, 2026 4:00 pm");
+    expect(explicit.match(/Mount Rainier is visible/gi)).toHaveLength(1);
   });
 });

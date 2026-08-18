@@ -266,6 +266,7 @@ function sanitizeSceneDescription(value: string): string {
  scene = scene.replace(/^['"`\s]+|['"`\s]+$/g, "");
  scene = scene.replace(/^(?:(?:an?\s+)?(?:image|photo|photograph)\s+of\s+)+/i, "");
  scene = scene.replace(/\b(?:an?\s+)?(?:image|photo|photograph)\s+of\b/gi, "");
+ scene = scene.replace(/\bMount Rainier\b[^.!?]*(?:visible|visibility)[^.!?]*[.!?]?/gi, "");
  scene = scene.replace(/\b(?:it\s+)?(?:appears?|seems?)\s+(?:to\s+be\s+|to\s+show\s+|that\s+)?/gi, "");
  scene = scene.replace(/\b(?:may|might|could)\s+be\b/gi, "");
  scene = scene.replace(/\b(?:possibly|perhaps|maybe|likely|probably|might|could)\b/gi, "");
