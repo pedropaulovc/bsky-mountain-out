@@ -58,13 +58,13 @@ curl -H "Authorization: Bearer $DEV_TOKEN" "http://localhost:8787/check?raw=1"
 - `GET /check?raw=1` — returns the generated JPEG for crop/watermark review
 - `GET /check?raw=1&refs=1` — returns the classifier contact sheet with target and reference tiles
 - `GET /check?post=1` — explicitly permits a real post when `POSTING_ENABLED=true`
-- `GET /draft?at=...&frame=...` — runs a specific timestamp/frame without posting and returns an HTML draft with the image, proposed text, decision, and alt text
+- `GET /draft?at=...` — derives the nearest available frame at that timestamp, runs without posting, and returns an HTML draft with the image, proposed text, decision, and alt text
 
 Example:
 
 ```sh
 curl -H "Authorization: Bearer $DEV_TOKEN" \
-  "http://localhost:8787/draft?at=2025-03-25T20:00:00Z&frame=2025_0325_130000" \
+  "http://localhost:8787/draft?at=2025-03-25T20:00:00Z" \
   > draft.html
 ```
 

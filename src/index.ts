@@ -385,7 +385,6 @@ export default {
       try {
         const result = await runTick(env, {
           now: requestedAt,
-          frameId: url.searchParams.get("frame") ?? undefined,
           ignoreLastFrame: true,
           persist: false,
           allowPost: false,
