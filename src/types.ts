@@ -57,6 +57,7 @@ export interface Decision {
 
 export interface Env {
   AI: AiBinding;
+  ASSETS?: Fetcher;
   STATE: KVNamespace;
   BSKY_IDENTIFIER: string;
   BSKY_APP_PASSWORD: string;

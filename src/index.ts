@@ -126,6 +126,15 @@ function imageMode(env: Env): ImageMode {
 function classifierReferenceUrls(env: Env): string[] {
   return env.CLASSIFIER_REFERENCE_URLS.split(",").map((url) => url.trim()).filter(Boolean);
 }
+function classifierReferenceFetcher(env: Env): typeof fetch {
+  return (input, init) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    if (url.startsWith("/") && env.ASSETS) {
+      return env.ASSETS.fetch(new Request(`https://bsky-mountain-out.assets${url}`, init));
+    }
+    return fetch(input, init);
+  };
+}
 
 function botHandle(identifier: string | undefined): string {
   const trimmed = identifier?.trim();
@@ -171,7 +180,7 @@ export async function runTick(env: Env, options: TickOptions = {}): Promise<Tick
   if (options.rawOnly) {
     const referenceUrls = options.referenceOnly ? classifierReferenceUrls(env) : [];
     const referenceSheet = options.referenceOnly
-      ? await buildReferenceSheet(image, referenceUrls)
+      ? await buildReferenceSheet(image, referenceUrls, { fetcher: classifierReferenceFetcher(env) })
       : undefined;
     const diagnosticImage = referenceSheet ?? image;
     tick.log("image-ready", {
@@ -187,7 +196,9 @@ export async function runTick(env: Env, options: TickOptions = {}): Promise<Tick
 
   const referenceUrls = classifierReferenceUrls(env);
   const referenceStartedAt = Date.now();
-  const referenceSheet = await buildReferenceSheet(image, referenceUrls);
+  const referenceSheet = await buildReferenceSheet(image, referenceUrls, {
+    fetcher: classifierReferenceFetcher(env),
+  });
   const referenceMs = Date.now() - referenceStartedAt;
   const classifyStartedAt = Date.now();
   const classification = await classifyImage(env, image, {

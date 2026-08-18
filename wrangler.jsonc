@@ -14,6 +14,10 @@
 	"ai": {
 		"binding": "AI"
 	},
+	"assets": {
+		"directory": "./assets",
+		"binding": "ASSETS"
+	},
 	"kv_namespaces": [
 		{
 			"binding": "STATE",
@@ -23,7 +27,7 @@
 	],
 	"vars": {
 		"MODEL_ID": "@cf/moondream/moondream3.1-9B-A2B",
-		"CLASSIFIER_REFERENCE_URLS": "https://d3omclagh7m7mg.cloudfront.net/assets/2025/03/25/2025_0325_120000/slice9.jpg,https://d3omclagh7m7mg.cloudfront.net/assets/2025/03/25/2025_0325_130000/slice9.jpg,https://d3omclagh7m7mg.cloudfront.net/assets/2025/03/25/2025_0325_140000/slice9.jpg",
+		"CLASSIFIER_REFERENCE_URLS": "/references/morning-visible.jpg,/references/morning-not-visible.jpg,/references/afternoon-visible.jpg,/references/afternoon-not-visible.jpg,/references/evening-visible.jpg,/references/evening-not-visible.jpg",
 		"BSKY_SERVICE_URL": "https://ismtrainierout.selfhosted.social",
 		"IMAGE_MODE": "stitched",
 		"POSTING_ENABLED": "true",

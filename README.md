@@ -76,7 +76,7 @@ CF_ACCOUNT_ID=... CF_API_TOKEN=... npm run eval -- --models @cf/moondream/moondr
 ```
 
 The evaluator reports per-model accuracy, confusion, precision, and recall. Do not deploy a model until clear, hazy, dawn/dusk, and no-mountain examples meet the desired accuracy threshold.
-Production classification uses `CLASSIFIER_REFERENCE_URLS`, a comma-separated list of public PanoCam images. The Worker builds a labeled contact sheet with `TARGET` plus up to four `REFERENCE` tiles because Moondream accepts one image input. The original target artifact remains unchanged for Bluesky posting. Remove the variable or set it empty to disable references if CPU or memory is too high.
+Production classification uses `CLASSIFIER_REFERENCE_URLS`, a comma-separated list of bundled `/references/*.jpg` assets. The Worker builds a labeled contact sheet with `TARGET` plus up to six `REFERENCE` tiles: one morning, afternoon, and evening example with Rainier, paired with a no-mountain frame. Moondream accepts one image input, so the sheet is classifier-only; the original target artifact remains unchanged for Bluesky posting. Remove the variable or set it empty to disable references if CPU or memory is too high.
 
 ## Telemetry and alerts
 

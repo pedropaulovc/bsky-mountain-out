@@ -98,6 +98,16 @@ function composeStitched(slices: DecodedSlice[]): PhotonImage {
  }
  return new PhotonImage(pixels, PANOCAM_STITCHED_WIDTH, PANOCAM_SLICE_HEIGHT);
 }
+function buildReferencePanel(source: PhotonImage): PhotonImage {
+ const width = source.get_width();
+ const height = source.get_height();
+ const cropHeight = Math.min(height, Math.max(1, Math.round(width * 0.75)));
+ const top = Math.max(0, Math.min(height - cropHeight, Math.round(height * 0.33 - cropHeight / 2)));
+ const cropped = crop(source, 0, top, width, top + cropHeight);
+ const panel = resize(cropped, REFERENCE_PANEL_WIDTH, REFERENCE_PANEL_HEIGHT, SamplingFilter.Triangle);
+ cropped.free();
+ return panel;
+}
 
 function creditTimestamp(frame: Frame): string {
  const parts = new Intl.DateTimeFormat("en-US", {
@@ -206,7 +216,7 @@ export async function buildImage(
 export const REFERENCE_PANEL_WIDTH = 512;
 export const REFERENCE_PANEL_HEIGHT = 384;
 export const REFERENCE_SHEET_JPEG_QUALITY = 85;
-export const DEFAULT_MAX_REFERENCE_IMAGES = 4;
+export const DEFAULT_MAX_REFERENCE_IMAGES = 6;
 
 /**
  * Compose the target and reference captures into one labeled image because
@@ -254,7 +264,7 @@ export async function buildReferenceSheet(
     const bytes = new Uint8Array(await response.arrayBuffer());
     if (bytes.byteLength === 0) continue;
     source = PhotonImage.new_from_byteslice(bytes);
-    panels.push(resize(source, REFERENCE_PANEL_WIDTH, REFERENCE_PANEL_HEIGHT, SamplingFilter.Triangle));
+    panels.push(buildReferencePanel(source));
     labels.push(`REFERENCE ${index + 1}`);
    } catch {
     continue;
