@@ -1,0 +1,26 @@
+{
+  "name": "bsky-mountain-out",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A Bluesky bot that reports whether Mount Rainier is visible from Seattle.",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "eval": "tsx scripts/eval.ts"
+  },
+  "dependencies": {
+    "@cf-wasm/photon": "^0.4.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260817.1",
+    "@types/node": "^24.3.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2",
+    "vitest": "^4.1.10",
+    "wrangler": "^4.123.0"
+  }
+}
