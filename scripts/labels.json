@@ -5,8 +5,8 @@
   "labelValues": ["visible", "not-visible"],
   "instructions": "Each label was reviewed from the fetched slice9 image. Visible requires a discernible Mount Rainier summit or upper slopes, not a generic bright cloud or ridge. Re-review ambiguous frames before changing labels.",
   "labels": [
-    {"frameId":"2025_0121_070000","url":"https://d3omclagh7m7mg.cloudfront.net/assets/2025/01/21/2025_0121_070000/slice9.jpg","label":"not-visible","status":"hand-labeled","reviewerNote":"Night/blue-hour harbor skyline; no discernible Rainier summit."},
-    {"frameId":"2025_0121_120000","url":"https://d3omclagh7m7mg.cloudfront.net/assets/2025/01/21/2025_0121_120000/slice9.jpg","label":"not-visible","status":"hand-labeled","reviewerNote":"Bright hazy harbor skyline; no summit or upper slopes discernible."},
+    {"frameId":"2025_0325_130000","url":"https://d3omclagh7m7mg.cloudfront.net/assets/2025/03/25/2025_0325_130000/slice9.jpg","label":"visible","status":"hand-labeled","reviewerNote":"Snow-covered Rainier summit and upper slopes are clearly visible above the downtown skyline."},
+    {"frameId":"2025_0325_140000","url":"https://d3omclagh7m7mg.cloudfront.net/assets/2025/03/25/2025_0325_140000/slice9.jpg","label":"visible","status":"hand-labeled","reviewerNote":"Bright clear frame with a distinct snow-covered Rainier summit and upper slopes."},
     {"frameId":"2025_0121_190000","url":"https://d3omclagh7m7mg.cloudfront.net/assets/2025/01/21/2025_0121_190000/slice9.jpg","label":"not-visible","status":"hand-labeled","reviewerNote":"Night harbor skyline; Rainier summit not visible."},
     {"frameId":"2025_0325_070000","url":"https://d3omclagh7m7mg.cloudfront.net/assets/2025/03/25/2025_0325_070000/slice9.jpg","label":"visible","status":"hand-labeled","reviewerNote":"Distinct snow-covered Rainier summit and upper slopes clearly rise above the skyline."},
     {"frameId":"2025_0325_120000","url":"https://d3omclagh7m7mg.cloudfront.net/assets/2025/03/25/2025_0325_120000/slice9.jpg","label":"visible","status":"hand-labeled","reviewerNote":"Rainier summit and snowy upper slopes are discernible through light haze."},
