@@ -292,10 +292,14 @@ function safeSecretEqual(left: string, right: string): boolean {
   return difference === 0;
 }
 
+function authorizedToken(token: string, env: Env): boolean {
+  return Boolean(env.DEV_TOKEN) && safeSecretEqual(token, env.DEV_TOKEN);
+}
+
 function authorized(request: Request, env: Env): boolean {
   const header = request.headers.get("Authorization") ?? "";
   const match = /^Bearer\s+(.+)$/i.exec(header);
-  return Boolean(env.DEV_TOKEN && match) && safeSecretEqual(match?.[1] ?? "", env.DEV_TOKEN);
+  return Boolean(match) && authorizedToken(match?.[1] ?? "", env);
 }
 
 function jsonResponse(data: unknown, status = 200): Response {
@@ -436,6 +440,52 @@ function renderDraftHtml(result: TickResult, requestedAt: Date): string {
 </body>
 </html>`;
 }
+function draftLoginHtml(atValue = "", message = ""): Response {
+  return htmlResponse(`<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Draft preview access</title></head>
+<body>
+<main>
+  <h1>Draft preview</h1>
+  ${message ? `<p>${htmlEscape(message)}</p>` : ""}
+  <form method="post" action="/draft">
+    <label>Timestamp (ISO-8601)
+      <input name="at" value="${htmlEscape(atValue)}" placeholder="2025-03-25T20:00:00Z" required>
+    </label>
+    <label>Development token
+      <input name="token" type="password" autocomplete="current-password" required>
+    </label>
+    <button type="submit">Render draft</button>
+  </form>
+</main>
+</body>
+</html>`);
+}
+
+async function draftResponse(env: Env, atValue: string | null): Promise<Response> {
+  if (!atValue) {
+    return htmlResponse("<h1>Missing at timestamp</h1><p>Enter an ISO-8601 timestamp.</p>", 400);
+  }
+  const requestedAt = new Date(atValue);
+  if (!Number.isFinite(requestedAt.getTime())) {
+    return htmlResponse(`<h1>Invalid timestamp</h1><p>${htmlEscape(atValue)}</p>`, 400);
+  }
+  try {
+    const result = await runTick(env, {
+      now: requestedAt,
+      ignoreLastFrame: true,
+      persist: false,
+      allowPost: false,
+      bypassDaylight: true,
+    });
+    if (result.status !== "success") {
+      return htmlResponse(`<h1>Draft unavailable</h1><p>${htmlEscape(result.status)}</p>`, 502);
+    }
+    return htmlResponse(renderDraftHtml(result, requestedAt));
+  } catch (error) {
+    return htmlResponse(`<h1>Draft pipeline failed</h1><pre>${htmlEscape(errorMessage(error))}</pre>`, 502);
+  }
+}
 
 export default {
   async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
@@ -444,32 +494,24 @@ export default {
 
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    if (!authorized(request, env)) return jsonResponse({ error: "unauthorized" }, 401);
-
     if (url.pathname === "/draft") {
-      if (request.method !== "GET") return htmlResponse("<h1>Method not allowed</h1>", 405);
-      const atValue = url.searchParams.get("at");
-      if (!atValue) return htmlResponse("<h1>Missing at timestamp</h1><p>Use an ISO-8601 <code>at</code> query parameter.</p>", 400);
-      const requestedAt = new Date(atValue);
-      if (!Number.isFinite(requestedAt.getTime())) {
-        return htmlResponse(`<h1>Invalid timestamp</h1><p>${htmlEscape(atValue)}</p>`, 400);
+      if (request.method === "GET") {
+        if (!authorized(request, env)) return draftLoginHtml(url.searchParams.get("at") ?? "");
+        return draftResponse(env, url.searchParams.get("at"));
       }
-      try {
-        const result = await runTick(env, {
-          now: requestedAt,
-          ignoreLastFrame: true,
-          persist: false,
-          allowPost: false,
-          bypassDaylight: true,
-        });
-        if (result.status !== "success") {
-          return htmlResponse(`<h1>Draft unavailable</h1><p>${htmlEscape(result.status)}</p>`, 502);
+      if (request.method === "POST") {
+        const form = await request.formData();
+        const token = form.get("token");
+        const atValue = form.get("at");
+        if (typeof token !== "string" || !authorizedToken(token, env)) {
+          return draftLoginHtml(typeof atValue === "string" ? atValue : "", "Invalid development token.");
         }
-        return htmlResponse(renderDraftHtml(result, requestedAt));
-      } catch (error) {
-        return htmlResponse(`<h1>Draft pipeline failed</h1><pre>${htmlEscape(errorMessage(error))}</pre>`, 502);
+        return draftResponse(env, typeof atValue === "string" ? atValue : null);
       }
+      return htmlResponse("<h1>Method not allowed</h1>", 405);
     }
+
+    if (!authorized(request, env)) return jsonResponse({ error: "unauthorized" }, 401);
 
     if (url.pathname === "/status") {
       return jsonResponse(await readState(env));

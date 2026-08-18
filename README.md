@@ -67,6 +67,7 @@ curl -H "Authorization: Bearer $DEV_TOKEN" \
   "http://localhost:8787/draft?at=2025-03-25T20:00:00Z" \
   > draft.html
 ```
+For Firefox, open the production `/draft?at=...` URL directly. It displays a form where you enter the development token and timestamp; no developer tools or curl are required. The token is submitted in the form body, not the URL.
 
 Keep `POSTING_ENABLED=false` while observing the first deployment. Set it to `true` only after verifying classifier decisions, CPU time, image attribution, and alt text.
 
