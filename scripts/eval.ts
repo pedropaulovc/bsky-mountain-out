@@ -11,6 +11,8 @@ type Example = {
   label: Label | null;
   status?: string;
   reviewPrompt?: string;
+  /** Audit metadata only; never included in the model request. */
+  reviewerNote?: string;
 };
 
 type ModelReport = {
@@ -114,6 +116,7 @@ async function loadManifest(path: string, limit?: number): Promise<Example[]> {
       label: label ?? null,
       status: typeof raw.status === "string" ? raw.status : undefined,
       reviewPrompt: typeof raw.reviewPrompt === "string" ? raw.reviewPrompt : undefined,
+      reviewerNote: typeof raw.reviewerNote === "string" ? raw.reviewerNote : undefined,
     };
   });
 }
