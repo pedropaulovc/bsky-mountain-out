@@ -8,7 +8,6 @@ import {
 } from "@cf-wasm/photon/workerd";
 import type { Frame, ImageArtifact, ImageMode } from "./types";
 import {
- frameAssetBaseUrl,
  PANOCAM_CAMERA_URL,
  PANOCAM_CENTER_X,
  PANOCAM_OUTPUT_HEIGHT,
@@ -24,12 +23,15 @@ import {
 export const PANOCAM_JPEG_QUALITY = 90;
 export const PANOCAM_CREDIT_STRIP_HEIGHT = 64;
 export const PANOCAM_STITCHED_WIDTH = PANOCAM_STITCH_SLICES.length * PANOCAM_SLICE_WIDTH;
+export const DEFAULT_IMAGE_REQUEST_TIMEOUT_MS = 10_000;
 
 export interface BuildImageOptions {
  /** Injectable image fetch implementation for tests and development routes. */
  fetch?: typeof fetch;
  /** Alias accepted by callers that prefer to name the network boundary. */
  fetcher?: typeof fetch;
+ /** Maximum milliseconds spent downloading one slice. */
+ timeoutMs?: number;
 }
 
 interface DecodedSlice {
@@ -42,8 +44,16 @@ function responseSucceeded(response: Response): boolean {
  return response.ok || (response.status >= 200 && response.status < 400);
 }
 
-async function fetchSlice(fetchImpl: typeof fetch, frame: Frame, index: number): Promise<PhotonImage> {
- const response = await fetchImpl(sliceAssetUrl(frame, index), { method: "GET" });
+async function fetchSlice(
+ fetchImpl: typeof fetch,
+ frame: Frame,
+ index: number,
+ timeoutMs: number,
+): Promise<PhotonImage> {
+ const response = await fetchImpl(sliceAssetUrl(frame, index), {
+  method: "GET",
+  signal: AbortSignal.timeout(timeoutMs),
+ });
  if (!responseSucceeded(response)) {
   throw new Error(`PanoCam slice ${index} returned HTTP ${response.status}`);
  }
@@ -98,7 +108,8 @@ function creditTimestamp(frame: Frame): string {
   hour12: true,
  }).formatToParts(frame.capturedAt);
  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
- return `${values.month} ${values.day} ${values.year} ${values.hour}:${values.minute} ${values.dayPeriod.toLowerCase()} PT`;
+ const dayPeriod = (values.dayPeriod ?? "").toLowerCase();
+ return `${values.month} ${values.day} ${values.year} ${values.hour}:${values.minute}${dayPeriod ? ` ${dayPeriod}` : ""} PT`;
 }
 
 function addCredit(image: PhotonImage, frame: Frame, botHandle: string): PhotonImage {
@@ -116,7 +127,6 @@ function addCredit(image: PhotonImage, frame: Frame, botHandle: string): PhotonI
    pixels[offset + 3] = 225;
   }
  }
- image.free();
  const credited = new PhotonImage(pixels, width, height);
  const firstLine = `Space Needle PanoCam | ${PANOCAM_CAMERA_URL}`;
  const secondLine = `${creditTimestamp(frame)} | ${botHandle}`;
@@ -136,23 +146,28 @@ export async function buildImage(
  options: BuildImageOptions = {},
 ): Promise<ImageArtifact> {
  const fetchImpl = options.fetcher ?? options.fetch ?? fetch;
+ const timeoutMs = options.timeoutMs ?? DEFAULT_IMAGE_REQUEST_TIMEOUT_MS;
+ if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+  throw new RangeError("Image request timeout must be a positive number");
+ }
  if (mode !== "stitched" && mode !== "raw-slice" && mode !== "raw-slice-unwatermarked") {
   throw new Error(`Unsupported image mode: ${mode}`);
  }
 
  if (mode === "stitched") {
   const slices: DecodedSlice[] = [];
+  let joined: PhotonImage | undefined;
+  let cropped: PhotonImage | undefined;
+  let output: PhotonImage | undefined;
   try {
    for (const index of PANOCAM_STITCH_SLICES) {
-    slices.push(normalizeSlice(await fetchSlice(fetchImpl, frame, index)));
+    slices.push(normalizeSlice(await fetchSlice(fetchImpl, frame, index, timeoutMs)));
    }
-   const joined = composeStitched(slices);
+   joined = composeStitched(slices);
    const cropLeft = PANOCAM_CENTER_X - PANOCAM_STITCH_SLICES[0] * PANOCAM_SLICE_WIDTH - PANOCAM_OUTPUT_WIDTH / 2;
-   const cropped = crop(joined, cropLeft, 0, cropLeft + PANOCAM_OUTPUT_WIDTH, PANOCAM_OUTPUT_HEIGHT);
-   joined.free();
-   const output = addCredit(cropped, frame, botHandle);
+   cropped = crop(joined, cropLeft, 0, cropLeft + PANOCAM_OUTPUT_WIDTH, PANOCAM_OUTPUT_HEIGHT);
+   output = addCredit(cropped, frame, botHandle);
    const bytes = output.get_bytes_jpeg(PANOCAM_JPEG_QUALITY);
-   output.free();
    return {
     bytes: new Uint8Array(bytes),
     contentType: "image/jpeg",
@@ -160,11 +175,14 @@ export async function buildImage(
     height: PANOCAM_OUTPUT_HEIGHT,
    };
   } finally {
+   output?.free();
+   cropped?.free();
+   joined?.free();
    for (const slice of slices) slice.image.free();
   }
  }
 
- const source = await fetchSlice(fetchImpl, frame, PANOCAM_RAW_SLICE_INDEX);
+ const source = await fetchSlice(fetchImpl, frame, PANOCAM_RAW_SLICE_INDEX, timeoutMs);
  const normalized = normalizeSlice(source);
  let output: PhotonImage | undefined;
  try {
@@ -180,8 +198,7 @@ export async function buildImage(
   };
  } finally {
   output?.free();
+  if (output !== normalized.image) normalized.image.free();
  }
 }
 
-// Keep this import live for callers that build custom frame objects from an id.
-export { frameAssetBaseUrl };

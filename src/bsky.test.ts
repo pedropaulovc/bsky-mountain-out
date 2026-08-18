@@ -57,4 +57,19 @@ describe("Bluesky XRPC client", () => {
     });
     await expect(client.createPost({ image, altText: " " })).rejects.toThrow("alt text is required");
   });
+  it("surfaces non-ok XRPC authentication errors", async () => {
+    const client = createBlueskyClient({
+      identifier: "bot.test",
+      appPassword: "app-password",
+      fetcher: async () =>
+        new Response(JSON.stringify({ error: "AuthenticationRequired", message: "invalid app password" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        }),
+    });
+    await expect(client.getSession()).rejects.toThrow(
+      "Bluesky com.atproto.server.createSession failed (401): AuthenticationRequired: invalid app password",
+    );
+  });
+
 });

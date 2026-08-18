@@ -56,11 +56,16 @@ function normalizeState(value: unknown): BotState {
     ? Math.max(0, Math.floor(record.pendingCount))
     : 0;
   const state: BotState = { pendingCount };
-  for (const key of ["lastVerdict", "lastPostedVerdict"] as const) {
-    if (record[key] === "visible" || record[key] === "not-visible") state[key] = record[key];
+  if (record.lastVerdict === "visible" || record.lastVerdict === "not-visible") {
+    state.lastVerdict = record.lastVerdict;
   }
-  for (const key of ["lastPostAt", "lastFrame", "notVisibleSince"] as const) {
-    if (typeof record[key] === "string" && record[key].length > 0) state[key] = record[key];
+  if (record.lastPostedVerdict === "visible" || record.lastPostedVerdict === "not-visible") {
+    state.lastPostedVerdict = record.lastPostedVerdict;
+  }
+  if (typeof record.lastPostAt === "string" && record.lastPostAt.length > 0) state.lastPostAt = record.lastPostAt;
+  if (typeof record.lastFrame === "string" && record.lastFrame.length > 0) state.lastFrame = record.lastFrame;
+  if (typeof record.notVisibleSince === "string" && record.notVisibleSince.length > 0) {
+    state.notVisibleSince = record.notVisibleSince;
   }
   const window = record.heartbeatWindow;
   if (window && typeof window === "object") {
@@ -239,8 +244,20 @@ export async function runTick(env: Env, options: TickOptions = {}): Promise<Tick
   return { status: "success", tickId, frame, image, classification, decision, posted, state: nextState };
 }
 
-function authorized(url: URL, env: Env): boolean {
-  return Boolean(env.DEV_TOKEN) && url.searchParams.get("token") === env.DEV_TOKEN;
+function safeSecretEqual(left: string, right: string): boolean {
+  let difference = left.length ^ right.length;
+  const length = Math.max(left.length, right.length);
+  for (let index = 0; index < length; index += 1) {
+    difference |= (index < left.length ? left.charCodeAt(index) : 0) ^
+      (index < right.length ? right.charCodeAt(index) : 0);
+  }
+  return difference === 0;
+}
+
+function authorized(request: Request, env: Env): boolean {
+  const header = request.headers.get("Authorization") ?? "";
+  const match = /^Bearer\s+(.+)$/i.exec(header);
+  return Boolean(env.DEV_TOKEN && match) && safeSecretEqual(match?.[1] ?? "", env.DEV_TOKEN);
 }
 
 function jsonResponse(data: unknown, status = 200): Response {
@@ -257,7 +274,7 @@ export default {
 
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    if (!authorized(url, env)) return jsonResponse({ error: "unauthorized" }, 401);
+    if (!authorized(request, env)) return jsonResponse({ error: "unauthorized" }, 401);
 
     if (url.pathname === "/status") {
       return jsonResponse(await readState(env));
@@ -269,11 +286,12 @@ export default {
 
     try {
       const rawOnly = url.searchParams.get("raw") === "1";
+      const requestedPost = url.searchParams.get("post") === "1";
       const result = await runTick(env, {
-        allowPost: url.searchParams.get("post") === "1",
+        allowPost: requestedPost && postingEnabled(env),
         frameId: url.searchParams.get("frame") ?? undefined,
         ignoreLastFrame: true,
-        persist: url.searchParams.get("post") === "1",
+        persist: requestedPost && postingEnabled(env),
         rawOnly,
         bypassDaylight: true,
       });

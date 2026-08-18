@@ -14,6 +14,7 @@ export const PANOCAM_CENTER_X = 4970;
 export const PANOCAM_OUTPUT_WIDTH = 1440;
 export const PANOCAM_OUTPUT_HEIGHT = 1080;
 export const PANOCAM_INTERVAL_MINUTES = 10;
+export const DEFAULT_FRAME_REQUEST_TIMEOUT_MS = 10_000;
 
 export interface DiscoverLatestFrameOptions {
  /** Time used as the upper bound. Defaults to the current instant. */
@@ -28,6 +29,8 @@ export interface DiscoverLatestFrameOptions {
  method?: "HEAD" | "GET";
  /** Maximum number of ten-minute marks to probe. Never exceeds 12. */
  maxProbes?: number;
+ /** Maximum milliseconds spent on one CDN probe. */
+ timeoutMs?: number;
 }
 
 interface PacificParts {
@@ -158,6 +161,10 @@ export async function discoverLatestFrame(
  const probes = Math.min(PANOCAM_PROBE_COUNT, Math.max(1, Math.floor(options.maxProbes ?? PANOCAM_PROBE_COUNT)));
  const fetchImpl = options.fetcher ?? options.fetch ?? fetch;
  const method = options.method ?? "HEAD";
+ const timeoutMs = options.timeoutMs ?? DEFAULT_FRAME_REQUEST_TIMEOUT_MS;
+ if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+  throw new RangeError("Frame request timeout must be a positive number");
+ }
 
  for (let probe = 0; probe < probes; probe += 1) {
   const markParts = pacificParts(new Date(markInstant.getTime() - probe * PANOCAM_INTERVAL_MINUTES * 60_000));
@@ -166,11 +173,17 @@ export async function discoverLatestFrame(
   const frame = frameFromId(id);
   let response: Response;
   try {
-   response = await fetchImpl(frame.shareUrl, { method });
+   response = await fetchImpl(frame.shareUrl, {
+    method,
+    signal: AbortSignal.timeout(timeoutMs),
+   });
    // A few static origins reject HEAD while serving GET normally. This is a
    // fallback for that case and does not consume another candidate probe.
    if (method === "HEAD" && (response.status === 405 || response.status === 501)) {
-    response = await fetchImpl(frame.shareUrl, { method: "GET" });
+    response = await fetchImpl(frame.shareUrl, {
+     method: "GET",
+     signal: AbortSignal.timeout(timeoutMs),
+    });
    }
   } catch {
    continue;

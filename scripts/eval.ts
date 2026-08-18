@@ -2,7 +2,7 @@
 
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-
+import { fileURLToPath } from "node:url";
 const VALID_LABELS = ["visible", "not-visible"] as const;
 type Label = (typeof VALID_LABELS)[number];
 type Example = {
@@ -22,7 +22,7 @@ type ModelReport = {
 };
 
 const scriptDirectory = new URL(".", import.meta.url);
-const defaultLabelsPath = resolve(new URL("labels.json", scriptDirectory).pathname);
+const defaultLabelsPath = resolve(fileURLToPath(new URL("labels.json", scriptDirectory)));
 const requestTimeoutMs = 120_000;
 
 function fail(message: string): never {
@@ -156,7 +156,7 @@ function responseText(result: unknown): string {
 function parsePrediction(text: string, model: string, frameId: string): Label {
   const match = text.toLowerCase().match(/\b(not[ -]?visible|visible)\b/);
   if (!match) fail(`model ${model} returned no visible/not-visible label for ${frameId}: ${text.slice(0, 500)}`);
-  return match[1].replace(" ", "-") === "not-visible" ? "not-visible" : "visible";
+  return match[1].startsWith("not") ? "not-visible" : "visible";
 }
 
 async function runModel(model: string, examples: Example[], token: string, accountId: string): Promise<ModelReport> {
@@ -181,7 +181,7 @@ async function runModel(model: string, examples: Example[], token: string, accou
     imageCache.set(example.url, image);
     const body = {
       task: "query",
-      image: example.url,
+      image: `data:image/jpeg;base64,${Buffer.from(image).toString("base64")}`,
       question: "Determine whether Mount Rainier is visibly present in this Space Needle webcam frame. Respond with exactly one label, visible or not-visible, followed by one short factual reason.",
       stream: false,
       reasoning: false,
@@ -230,6 +230,14 @@ function printReport(report: ModelReport): void {
   console.log("  confusion (actual -> predicted):");
   for (const actual of VALID_LABELS) {
     console.log(`    ${actual}: visible=${report.confusion[actual].visible}, not-visible=${report.confusion[actual]["not-visible"]}`);
+  }
+  for (const label of VALID_LABELS) {
+    const actualCount = VALID_LABELS.reduce((total, actual) => total + report.confusion[actual][label], 0);
+    const predictedCount = VALID_LABELS.reduce((total, predicted) => total + report.confusion[label][predicted], 0);
+    const truePositive = report.confusion[label][label];
+    const precision = predictedCount === 0 ? 0 : truePositive / predictedCount;
+    const recall = actualCount === 0 ? 0 : truePositive / actualCount;
+    console.log(`  ${label}: precision=${(precision * 100).toFixed(2)}% recall=${(recall * 100).toFixed(2)}%`);
   }
 }
 

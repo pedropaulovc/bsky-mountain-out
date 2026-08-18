@@ -27,6 +27,8 @@ describe("decide", () => {
     expect(second.text).toBe("Yes! 🏔️");
     expect(second.state.pendingCount).toBe(2);
     expect(second.stateAfterPost?.lastPostedVerdict).toBe("visible");
+    const third = visible(second.stateAfterPost!, new Date("2026-01-01T12:02:00Z"));
+    expect(third.kind).toBe("hold");
   });
 
   it("requires exactly two consecutive checks for a not-visible transition", () => {

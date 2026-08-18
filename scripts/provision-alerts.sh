@@ -7,7 +7,7 @@ set -euo pipefail
 : "${AZURE_SUBSCRIPTION_ID:?AZURE_SUBSCRIPTION_ID is required}"
 : "${AZURE_RESOURCE_GROUP:?AZURE_RESOURCE_GROUP is required}"
 : "${APPINSIGHTS_RESOURCE_ID:?APPINSIGHTS_RESOURCE_ID is required}"
-: "${ALERT_EMAIL:=pedro@vezza.com.br}"
+: "${ALERT_EMAIL:?ALERT_EMAIL is required}"
 : "${ACTION_GROUP_NAME:=bsky-mountain-out-alerts}"
 : "${ACTION_GROUP_SHORT_NAME:=bskybot}"
 : "${ERROR_ALERT_NAME:=bsky-mountain-out-errors}"
