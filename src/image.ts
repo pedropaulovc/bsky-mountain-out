@@ -220,8 +220,8 @@ export const DEFAULT_MAX_REFERENCE_IMAGES = 6;
 
 /**
  * Compose the target and reference captures into one labeled image because
- * Moondream's Workers AI schema accepts one image, not an image array.
- * The returned sheet is classifier-only; the original target remains the post image.
+ * the OpenAI vision request uses one input image for this classifier. The
+ * returned sheet is classifier-only; the original target remains the post image.
  */
 export async function buildReferenceSheet(
  target: ImageArtifact,

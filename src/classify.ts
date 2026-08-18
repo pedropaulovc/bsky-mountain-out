@@ -5,6 +5,20 @@ export const CLASSIFICATION_PROMPT = `Analyze the TARGET image or TARGET panel f
 
 export const VISION_PROMPT = CLASSIFICATION_PROMPT;
 export const REFERENCE_PROMPT_SUFFIX = `If the image is a labeled contact sheet, analyze only the panel labeled TARGET. Panels labeled REFERENCE are examples of Mount Rainier when visible; do not count a mountain in a REFERENCE panel as evidence that it is visible in TARGET. Compare the distinctive snow-covered summit and upper slopes, but rely on observable details in TARGET.`;
+export const OPENAI_RESPONSES_PATH = "/responses";
+export const DEFAULT_OPENAI_API_URL = "https://api.openai.com/v1";
+export const DEFAULT_CLASSIFIER_EFFORT = "medium";
+
+const CLASSIFICATION_SCHEMA = {
+ type: "object",
+ additionalProperties: false,
+ properties: {
+  visible: { type: "boolean" },
+  confidence: { type: "number", minimum: 0, maximum: 1 },
+  sceneDescription: { type: "string" },
+ },
+ required: ["visible", "confidence", "sceneDescription"],
+} as const;
 
 export interface ClassificationOptions {
  /** Override the model configured on the Worker. */
@@ -21,6 +35,10 @@ export interface ClassificationOptions {
  input?: Record<string, unknown>;
  /** Optional labeled contact sheet used only by the classifier. */
  referenceSheet?: ImageArtifact;
+ /** Override the reasoning effort sent to OpenAI. */
+ reasoningEffort?: string;
+ /** Inject a fetch implementation for deterministic tests. */
+ fetcher?: typeof fetch;
 }
 
 export type ClassificationTimestamp = Date | string | number;
@@ -40,7 +58,7 @@ export function buildClassificationPrompt(override?: string): string {
  return prompt.trim();
 }
 
-/** Convert JPEG bytes to the data URI accepted by the Moondream Workers AI model. */
+/** Convert JPEG bytes to the data URI accepted by OpenAI Responses image input. */
 export function imageDataUri(image: ImageArtifact): string {
  if (image.contentType !== "image/jpeg") {
   throw new TypeError("Vision classification requires a JPEG ImageArtifact");
@@ -51,30 +69,44 @@ export function imageDataUri(image: ImageArtifact): string {
  return `data:image/jpeg;base64,${base64Encode(image.bytes)}`;
 }
 
-/** Build the model input without invoking Workers AI. */
+/** Build an OpenAI Responses request without invoking the API. */
 export function buildVisionInput(
  image: ImageArtifact,
  prompt = CLASSIFICATION_PROMPT,
  additionalInput: Record<string, unknown> = {},
  referenceSheet?: ImageArtifact,
+ modelId = "gpt-5.6-luna",
+ reasoningEffort = DEFAULT_CLASSIFIER_EFFORT,
 ): Record<string, unknown> {
  const question = [
   buildClassificationPrompt(prompt),
   referenceSheet ? REFERENCE_PROMPT_SUFFIX : "",
  ].filter(Boolean).join("\n\n");
  return {
-  task: "query",
   ...additionalInput,
-  image: imageDataUri(referenceSheet ?? image),
-  question,
-  stream: false,
-  reasoning: false,
+  model: modelId,
+  input: [{
+   role: "user",
+   content: [
+    { type: "input_text", text: question },
+    { type: "input_image", image_url: imageDataUri(referenceSheet ?? image), detail: "high" },
+   ],
+  }],
+  reasoning: { effort: reasoningEffort },
+  text: {
+   format: {
+    type: "json_schema",
+    name: "rainier_classification",
+    strict: true,
+    schema: CLASSIFICATION_SCHEMA,
+   },
+  },
  };
 }
 
 /**
- * Parse a model response. Workers AI models commonly return `{response: string}`,
- * while test doubles and other model versions may return the JSON object directly.
+ * Parse an OpenAI Responses output. Raw Responses payloads expose text inside
+ * `output_text` or nested output message content items.
  */
 export function parseClassificationResponse(response: unknown): ParsedClassification {
  const candidate = findClassificationCandidate(response);
@@ -127,21 +159,51 @@ export function buildAltText(
 
 export const createAltText = buildAltText;
 
-/** Run Workers AI vision classification and return the shared Classification shape. */
+const OPENAI_REQUEST_TIMEOUT_MS = 60_000;
+
+/** Run the OpenAI Responses vision request and return the shared classification shape. */
 export async function classifyImage(
- env: Pick<Env, "AI" | "MODEL_ID">,
+ env: Pick<Env, "OPENAI_API_KEY" | "OPENAI_API_URL" | "MODEL_ID" | "CLASSIFIER_REASONING_EFFORT">,
  image: ImageArtifact,
  input?: ClassificationInput,
 ): Promise<Classification> {
  const options = normalizeOptions(input);
  const modelId = options.modelId ?? env.MODEL_ID;
- if (typeof modelId !== "string" || modelId.trim().length === 0) {
-  throw new Error("A Workers AI model id is required for vision classification");
- }
+ const apiKey = env.OPENAI_API_KEY?.trim();
+ if (!apiKey) throw new Error("An OpenAI API key is required for vision classification");
+ if (!modelId?.trim()) throw new Error("An OpenAI model id is required for vision classification");
 
  const prompt = buildClassificationPrompt(options.prompt);
- const modelInput = buildVisionInput(image, prompt, options.input, options.referenceSheet);
- const raw = await env.AI.run(modelId, modelInput);
+ const effort = options.reasoningEffort ?? env.CLASSIFIER_REASONING_EFFORT ?? DEFAULT_CLASSIFIER_EFFORT;
+ const modelInput = buildVisionInput(
+  image,
+  prompt,
+  options.input,
+  options.referenceSheet,
+  modelId,
+  effort,
+ );
+ const fetcher = options.fetcher ?? fetch;
+ const apiUrl = (env.OPENAI_API_URL || DEFAULT_OPENAI_API_URL).replace(/\/$/, "");
+ const response = await fetcher(`${apiUrl}${OPENAI_RESPONSES_PATH}`, {
+  method: "POST",
+  headers: {
+   Authorization: `Bearer ${apiKey}`,
+   "Content-Type": "application/json",
+  },
+  body: JSON.stringify(modelInput),
+  signal: AbortSignal.timeout(OPENAI_REQUEST_TIMEOUT_MS),
+ });
+ const body = await response.text();
+ if (!response.ok) {
+  throw new Error(`OpenAI Responses request failed (${response.status}): ${body.slice(0, 500)}`);
+ }
+ let raw: unknown;
+ try {
+  raw = JSON.parse(body);
+ } catch {
+  throw new Error(`OpenAI Responses returned invalid JSON: ${body.slice(0, 500)}`);
+ }
  const parsed = parseClassificationResponse(raw);
  const timestamp = options.timestamp ?? options.altDateTime ?? options.capturedAt;
  return {
@@ -189,7 +251,7 @@ function findClassificationCandidate(value: unknown, depth = 0): UnknownRecord |
  if ("visible" in object || "confidence" in object || "sceneDescription" in object || "scene_description" in object) {
   return object;
  }
- for (const key of ["response", "result", "output", "text", "answer", "caption", "content", "choices"]) {
+ for (const key of ["output_text", "response", "result", "output", "text", "answer", "caption", "content", "choices"]) {
   if (key in object) {
    const candidate = findClassificationCandidate(object[key], depth + 1);
    if (candidate) return candidate;

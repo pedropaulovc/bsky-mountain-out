@@ -14,35 +14,50 @@ const image: ImageArtifact = {
 };
 
 describe("vision classification", () => {
-  it("uses the documented Moondream query input shape", () => {
+  it("uses the documented OpenAI Responses image input shape", () => {
     const input = buildVisionInput(image, "Return strict JSON.");
     expect(input).toMatchObject({
-      task: "query",
-      question: "Return strict JSON.",
-      stream: false,
-      reasoning: false,
+      model: "gpt-5.6-luna",
+      reasoning: { effort: "medium" },
+      text: { format: { type: "json_schema", strict: true } },
     });
-    expect(input.image).toMatch(/^data:image\/jpeg;base64,/);
+    expect(JSON.stringify(input)).toContain("input_image");
+    expect(JSON.stringify(input)).toContain("data:image/jpeg;base64,");
   });
   it("adds explicit target/reference instructions for a contact sheet", () => {
     const input = buildVisionInput(image, "Return strict JSON.", {}, image);
-    expect(input.question).toContain("TARGET");
-    expect(input.question).toContain("REFERENCE");
-    expect(input.image).toMatch(/^data:image\/jpeg;base64,/);
+    expect(input.input).toBeDefined();
+    expect(JSON.stringify(input)).toContain("TARGET");
+    expect(JSON.stringify(input)).toContain("REFERENCE");
+    expect(JSON.stringify(input)).toContain("input_image");
   });
 
-  it("turns a strict model response into explicit, bounded alt text", async () => {
+  it("turns a strict OpenAI response into explicit, bounded alt text", async () => {
     const result = await classifyImage(
       {
-        MODEL_ID: "test-model",
-        AI: {
-          run: async () => ({
-            response: '```json\n{"visible":true,"confidence":0.94,"sceneDescription":"Golden-hour skyline with Mount Rainier on the horizon"}\n```',
-          }),
-        },
+        MODEL_ID: "gpt-5.6-luna",
+        OPENAI_API_KEY: "test-key",
+        OPENAI_API_URL: "https://api.openai.test/v1",
+        CLASSIFIER_REASONING_EFFORT: "medium",
       },
       image,
-      new Date("2026-08-17T23:00:00.000Z"),
+      {
+        timestamp: new Date("2026-08-17T23:00:00.000Z"),
+        fetcher: async (_input, init) => {
+          const body = JSON.parse(String(init?.body));
+          expect(body.model).toBe("gpt-5.6-luna");
+          expect(body.reasoning.effort).toBe("medium");
+          return Response.json({
+            output: [{
+              type: "message",
+              content: [{
+                type: "output_text",
+                text: '{"visible":true,"confidence":0.94,"sceneDescription":"Golden-hour skyline with Mount Rainier on the horizon"}',
+              }],
+            }],
+          });
+        },
+      },
     );
     expect(result.verdict).toBe("visible");
     expect(result.altText).toContain("Mount Rainier is visible.");

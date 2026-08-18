@@ -8,7 +8,7 @@ Every 20 minutes during approximately 06:00–21:30 Pacific time, the Worker:
 
 1. Probes the Space Needle PanoCam CDN for the newest available frame.
 2. Builds an attributed JPEG focused on the Seattle skyline and Mount Rainier.
-3. Classifies the image with Workers AI.
+3. Classifies the image with the OpenAI Responses API.
 4. Requires two consecutive high-confidence checks before posting a visibility transition.
 5. Posts an occasional “still not visible” update every three days in a randomly selected dramatic-light window.
 6. Logs structured tick, frame, classifier, decision, CPU-timing, and post-URI fields.
@@ -18,7 +18,7 @@ Each image includes a visible source credit. Each Bluesky post includes descript
 ## Architecture
 
 - **Runtime:** Cloudflare Workers cron
-- **Vision:** Workers AI, configurable with `MODEL_ID` (default `@cf/moondream/moondream3.1-9B-A2B`)
+- **Vision:** OpenAI Responses API, configurable with `MODEL_ID` (default `gpt-5.6-luna`) and `CLASSIFIER_REASONING_EFFORT` (default `medium`)
 - **State:** Workers KV
 - **Image source:** Space Needle PanoCam CDN (`spaceneedle.com/webcam`)
 - **Posting:** three direct AT Protocol XRPC requests to `BSKY_SERVICE_URL` (production uses `https://ismtrainierout.selfhosted.social`); no Bluesky SDK
@@ -81,7 +81,7 @@ Measure actual Worker CPU time after deployment. If the free plan cannot run the
 The classifier is the main risk because Rainier is a small horizon feature and vision models may rely on Seattle priors. Add reviewed archive examples to `scripts/labels.json`, then run:
 
 ```sh
-CF_ACCOUNT_ID=... CF_API_TOKEN=... npm run eval -- --models @cf/moondream/moondream3.1-9B-A2B
+OPENAI_API_KEY=... npm run eval -- --models gpt-5.6-luna
 ```
 
 The evaluator reports per-model accuracy, confusion, precision, and recall. Do not deploy a model until clear, hazy, dawn/dusk, and no-mountain examples meet the desired accuracy threshold.
@@ -136,7 +136,9 @@ Never commit credentials. Upload them with Wrangler:
 ```sh
 npx wrangler secret put BSKY_IDENTIFIER
 npx wrangler secret put BSKY_APP_PASSWORD
+npx wrangler secret put OPENAI_API_KEY
 ```
+`OPENAI_API_KEY` is required by the classifier. The Worker sends requests to `/v1/responses` with `reasoning.effort=medium`; the key remains server-side.
 
 The bot account should use an app password, not the primary Bluesky password. The account bio should credit `@IsMtRainierOut` as inspiration and the Space Needle PanoCam as the image source.
 

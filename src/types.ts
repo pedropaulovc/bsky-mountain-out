@@ -56,19 +56,18 @@ export interface Decision {
 }
 
 export interface Env {
-  AI: AiBinding;
   ASSETS?: Fetcher;
   STATE: KVNamespace;
   BSKY_IDENTIFIER: string;
   BSKY_APP_PASSWORD: string;
   BSKY_SERVICE_URL: string;
   MODEL_ID: string;
+  OPENAI_API_KEY: string;
+  OPENAI_API_URL: string;
+  CLASSIFIER_REASONING_EFFORT: string;
   IMAGE_MODE: ImageMode;
   CLASSIFIER_REFERENCE_URLS: string;
   POSTING_ENABLED: string;
   DEV_TOKEN: string;
 }
 
-export interface AiBinding {
-  run(model: string, input: Record<string, unknown>): Promise<unknown>;
-}

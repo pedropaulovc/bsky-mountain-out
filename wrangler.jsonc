@@ -11,9 +11,6 @@
 			"*/20 * * * *"
 		]
 	},
-	"ai": {
-		"binding": "AI"
-	},
 	"assets": {
 		"directory": "./assets",
 		"binding": "ASSETS"
@@ -26,7 +23,9 @@
 		}
 	],
 	"vars": {
-		"MODEL_ID": "@cf/moondream/moondream3.1-9B-A2B",
+		"MODEL_ID": "gpt-5.6-luna",
+		"OPENAI_API_URL": "https://api.openai.com/v1",
+		"CLASSIFIER_REASONING_EFFORT": "medium",
 		"CLASSIFIER_REFERENCE_URLS": "/references/morning-visible.jpg,/references/morning-not-visible.jpg,/references/afternoon-visible.jpg,/references/afternoon-not-visible.jpg,/references/evening-visible.jpg,/references/evening-not-visible.jpg",
 		"BSKY_SERVICE_URL": "https://ismtrainierout.selfhosted.social",
 		"IMAGE_MODE": "stitched",

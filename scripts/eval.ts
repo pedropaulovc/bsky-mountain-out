@@ -35,16 +35,15 @@ function usage(): void {
   console.log(`Usage: npm run eval -- [--labels FILE] [--models MODEL[,MODEL...]] [--limit N]
 
 Required environment:
-  CLOUDFLARE_ACCOUNT_ID (or CF_ACCOUNT_ID)
-  CLOUDFLARE_API_TOKEN (or CF_API_TOKEN)
+  OPENAI_API_KEY
 
-Models default to EVAL_MODELS, then MODEL_ID, then @cf/moondream/moondream3.1-9B-A2B.
+Models default to EVAL_MODELS, then MODEL_ID, then gpt-5.6-luna.
 Labels with label:null are intentionally skipped until hand-labeled.`);
 }
 
 function parseArgs(): { labelsPath: string; models: string[]; limit?: number } {
   let labelsPath = process.env.LABELS_FILE ?? defaultLabelsPath;
-  let modelsValue = process.env.EVAL_MODELS ?? process.env.MODEL_IDS ?? process.env.MODEL_ID ?? "@cf/moondream/moondream3.1-9B-A2B";
+  let modelsValue = process.env.EVAL_MODELS ?? process.env.MODEL_IDS ?? process.env.MODEL_ID ?? "gpt-5.6-luna";
   let limit: number | undefined;
 
   const args = process.argv.slice(2);
@@ -149,7 +148,7 @@ async function loadImage(url: string, frameId: string): Promise<Uint8Array> {
 function responseText(result: unknown): string {
   if (typeof result === "string") return result;
   if (!isRecord(result)) return "";
-  for (const key of ["response", "answer", "description", "caption", "text", "output"]) {
+  for (const key of ["output_text", "response", "answer", "description", "caption", "text", "output"]) {
     const value = result[key];
     if (typeof value === "string") return value;
   }
@@ -162,7 +161,7 @@ function parsePrediction(text: string, model: string, frameId: string): Label {
   return match[1].startsWith("not") ? "not-visible" : "visible";
 }
 
-async function runModel(model: string, examples: Example[], token: string, accountId: string): Promise<ModelReport> {
+async function runModel(model: string, examples: Example[], apiKey: string): Promise<ModelReport> {
   const confusion: Record<Label, Record<Label, number>> = {
     visible: { visible: 0, "not-visible": 0 },
     "not-visible": { visible: 0, "not-visible": 0 },
@@ -171,9 +170,7 @@ async function runModel(model: string, examples: Example[], token: string, accou
   let skipped = 0;
   let correct = 0;
   const imageCache = new Map<string, Uint8Array>();
-  // Model IDs intentionally retain their provider slash (for example
-  // @cf/moondream/moondream3.1-9B-A2B), which is part of the Workers AI route.
-  const endpoint = `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/run/${encodeURI(model)}`;
+  const endpoint = "https://api.openai.com/v1/responses";
 
   for (const example of examples) {
     if (example.label === null) {
@@ -183,36 +180,61 @@ async function runModel(model: string, examples: Example[], token: string, accou
     const image = imageCache.get(example.url) ?? await loadImage(example.url, example.frameId);
     imageCache.set(example.url, image);
     const body = {
-      task: "query",
-      image: `data:image/jpeg;base64,${Buffer.from(image).toString("base64")}`,
-      question: "Determine whether Mount Rainier is visibly present in this Space Needle webcam frame. Respond with exactly one label, visible or not-visible, followed by one short factual reason.",
-      stream: false,
-      reasoning: false,
+      model,
+      input: [{
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: "Determine whether Mount Rainier is visibly present. Return strict JSON with visible boolean, confidence from 0 to 1, and one concise factual sceneDescription. Visible requires recognizable mountain geometry in this target image; haze or bright clouds do not count.",
+          },
+          {
+            type: "input_image",
+            image_url: `data:image/jpeg;base64,${Buffer.from(image).toString("base64")}`,
+            detail: "high",
+          },
+        ],
+      }],
+      reasoning: { effort: "medium" },
+      text: {
+        format: {
+          type: "json_schema",
+          name: "rainier_evaluation",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              visible: { type: "boolean" },
+              confidence: { type: "number", minimum: 0, maximum: 1 },
+              sceneDescription: { type: "string" },
+            },
+            required: ["visible", "confidence", "sceneDescription"],
+          },
+        },
+      },
     };
     let response: Response;
     try {
       response = await fetch(endpoint, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(requestTimeoutMs),
       });
     } catch (error) {
-      fail(`Workers AI request failed for model ${model}, frame ${example.frameId}: ${error instanceof Error ? error.message : String(error)}`);
+      fail(`OpenAI request failed for model ${model}, frame ${example.frameId}: ${error instanceof Error ? error.message : String(error)}`);
     }
     const raw = await response.text();
-    if (!response.ok) fail(`Workers AI returned HTTP ${response.status} for model ${model}, frame ${example.frameId}: ${raw.slice(0, 1000)}`);
+    if (!response.ok) fail(`OpenAI returned HTTP ${response.status} for model ${model}, frame ${example.frameId}: ${raw.slice(0, 1000)}`);
     let payload: unknown;
     try {
       payload = JSON.parse(raw);
     } catch {
-      fail(`Workers AI returned non-JSON for model ${model}, frame ${example.frameId}: ${raw.slice(0, 1000)}`);
+      fail(`OpenAI returned non-JSON for model ${model}, frame ${example.frameId}: ${raw.slice(0, 1000)}`);
     }
-    if (!isRecord(payload) || payload.success !== true) {
-      fail(`Workers AI returned an unsuccessful response for model ${model}, frame ${example.frameId}: ${raw.slice(0, 1000)}`);
-    }
-    const text = responseText(payload.result);
-    if (!text) fail(`Workers AI response has no text for model ${model}, frame ${example.frameId}: ${raw.slice(0, 1000)}`);
+    const text = responseText(payload);
+    if (!text) fail(`OpenAI response has no output text for model ${model}, frame ${example.frameId}: ${raw.slice(0, 1000)}`);
     const prediction = parsePrediction(text, model, example.frameId);
     evaluated += 1;
     confusion[example.label][prediction] += 1;
@@ -246,16 +268,14 @@ function printReport(report: ModelReport): void {
 
 async function main(): Promise<void> {
   const { labelsPath, models, limit } = parseArgs();
-  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID ?? process.env.CF_ACCOUNT_ID;
-  const token = process.env.CLOUDFLARE_API_TOKEN ?? process.env.CF_API_TOKEN;
-  if (!accountId) fail("CLOUDFLARE_ACCOUNT_ID (or CF_ACCOUNT_ID) is required; no accuracy is reported without credentials");
-  if (!token) fail("CLOUDFLARE_API_TOKEN (or CF_API_TOKEN) is required; no accuracy is reported without credentials");
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) fail("OPENAI_API_KEY is required; no accuracy is reported without credentials");
   const examples = await loadManifest(labelsPath, limit);
   const labeled = examples.filter((example) => example.label !== null).length;
   console.log(`Loaded ${examples.length} examples (${labeled} hand-labeled, ${examples.length - labeled} pending).`);
   const reports: ModelReport[] = [];
   for (const model of models) {
-    reports.push(await runModel(model, examples, token, accountId));
+    reports.push(await runModel(model, examples, apiKey));
   }
   for (const report of reports) printReport(report);
 }
