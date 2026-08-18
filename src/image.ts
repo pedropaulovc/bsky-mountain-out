@@ -124,7 +124,7 @@ function creditTimestamp(frame: Frame): string {
  return `${values.month} ${values.day} ${values.year} ${values.hour}:${values.minute}${dayPeriod ? ` ${dayPeriod}` : ""} PT`;
 }
 
-function addCredit(image: PhotonImage, frame: Frame, botHandle: string): PhotonImage {
+function addCredit(image: PhotonImage, frame: Frame): PhotonImage {
  const width = image.get_width();
  const height = image.get_height();
  const sourcePixels = image.get_raw_pixels();
@@ -140,10 +140,11 @@ function addCredit(image: PhotonImage, frame: Frame, botHandle: string): PhotonI
   }
  }
  const credited = new PhotonImage(pixels, width, height);
- const firstLine = `Space Needle PanoCam | ${PANOCAM_CAMERA_URL}`;
- const secondLine = `${creditTimestamp(frame)} | ${botHandle}`;
- draw_text_with_color(credited, firstLine, 18, Math.max(0, height - 53), 16, new Rgba(255, 255, 255, 255));
- draw_text_with_color(credited, secondLine, 18, Math.max(0, height - 29), 16, new Rgba(255, 255, 255, 255));
+ const watermark = `Image (c) Space Needle LLC | Extracted from Space Needle PanoCam | ${PANOCAM_CAMERA_URL} | ${creditTimestamp(frame)}`;
+ const fontSize = width < 800 ? 8 : 16;
+ const x = width < 800 ? 4 : 18;
+ const y = Math.max(fontSize + 4, height - 20);
+ draw_text_with_color(credited, watermark, x, y, fontSize, new Rgba(255, 255, 255, 255));
  return credited;
 }
 
@@ -154,7 +155,6 @@ function addCredit(image: PhotonImage, frame: Frame, botHandle: string): PhotonI
 export async function buildImage(
  frame: Frame,
  mode: ImageMode,
- botHandle: string,
  options: BuildImageOptions = {},
 ): Promise<ImageArtifact> {
  const fetchImpl = options.fetcher ?? options.fetch ?? fetch;
@@ -178,7 +178,7 @@ export async function buildImage(
    joined = composeStitched(slices);
    const cropLeft = PANOCAM_CENTER_X - PANOCAM_STITCH_SLICES[0] * PANOCAM_SLICE_WIDTH - PANOCAM_OUTPUT_WIDTH / 2;
    cropped = crop(joined, cropLeft, 0, cropLeft + PANOCAM_OUTPUT_WIDTH, PANOCAM_OUTPUT_HEIGHT);
-   output = addCredit(cropped, frame, botHandle);
+   output = addCredit(cropped, frame);
    const bytes = output.get_bytes_jpeg(PANOCAM_JPEG_QUALITY);
    return {
     bytes: new Uint8Array(bytes),
@@ -200,7 +200,7 @@ export async function buildImage(
  try {
   output = mode === "raw-slice-unwatermarked"
    ? normalized.image
-   : addCredit(normalized.image, frame, botHandle);
+   : addCredit(normalized.image, frame);
   const bytes = output.get_bytes_jpeg(PANOCAM_JPEG_QUALITY);
   return {
    bytes: new Uint8Array(bytes),

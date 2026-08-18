@@ -18,7 +18,6 @@ const STATE_KEY = "bot-state";
 const PACIFIC_TIME_ZONE = "America/Los_Angeles";
 const DAYLIGHT_START_MINUTE = 6 * 60;
 const DAYLIGHT_END_MINUTE = 21 * 60 + 30;
-const DEFAULT_BOT_HANDLE = "@bsky-mountain-out";
 interface TickOptions {
   now?: Date;
   allowPost?: boolean;
@@ -136,11 +135,6 @@ function classifierReferenceFetcher(env: Env): typeof fetch {
   };
 }
 
-function botHandle(identifier: string | undefined): string {
-  const trimmed = identifier?.trim();
-  if (!trimmed) return DEFAULT_BOT_HANDLE;
-  return trimmed.startsWith("@") ? trimmed : `@${trimmed}`;
-}
 
 function postingEnabled(env: Env): boolean {
   return env.POSTING_ENABLED?.trim().toLowerCase() === "true";
@@ -175,7 +169,7 @@ export async function runTick(env: Env, options: TickOptions = {}): Promise<Tick
   }
 
   const startedAt = Date.now();
-  const image = await buildImage(frame, imageMode(env), botHandle(env.BSKY_IDENTIFIER));
+  const image = await buildImage(frame, imageMode(env));
   const imageMs = Date.now() - startedAt;
   if (options.rawOnly) {
     const referenceUrls = options.referenceOnly ? classifierReferenceUrls(env) : [];
