@@ -73,9 +73,9 @@ Keep `POSTING_ENABLED=false` while observing the first deployment. Set it to `tr
 
 ## Image modes
 
-`IMAGE_MODE=stitched` is the production mode. It fetches slices 6–9 and renders the official Space Needle PanoCam default city-facing view as a 1440×1080 image. `postcard` remains available as a diagnostic crop of slice 9; `raw-slice` fetches that full 512×1080 diagnostic slice. `raw-slice-unwatermarked` is an emergency diagnostic mode only and violates the normal attribution requirement; do not use it for public posts.
+`IMAGE_MODE=stitched` is the production mode. It loads the complete 17-slice PanoCam panorama and renders the Rainier-facing production view at 1440×1080. `postcard` remains available as a diagnostic crop of slice 9; `raw-slice` fetches that full 512×1080 diagnostic slice. `raw-slice-unwatermarked` is an emergency diagnostic mode only and violates the normal attribution requirement; do not use it for public posts.
 
-The stitched crop follows the viewer's default panorama position rather than treating a single numbered slice as a fixed compass direction. This matters because the source camera's slice numbering and alignment vary across archived frames.
+The stitched target and bundled classifier references use the same panorama assembly, crop, dimensions, and attribution bar. No fixed four-slice window is used; the full source panorama is assembled before cropping.
 Measure actual Worker CPU time after deployment. If the stitched path is unsuitable, switch to `postcard`, `raw-slice`, or upgrade the Worker to the Paid plan.
 
 ## Classifier evaluation

@@ -9,20 +9,21 @@ import {
 import type { Frame, ImageArtifact, ImageMode } from "./types";
 import {
  PANOCAM_CAMERA_URL,
- PANOCAM_DEFAULT_VIEW_POSITION,
+ PANOCAM_RAINIER_VIEW_POSITION,
+ PANOCAM_PANORAMA_WIDTH,
  PANOCAM_OUTPUT_HEIGHT,
  PANOCAM_OUTPUT_WIDTH,
  PANOCAM_RAW_SLICE_INDEX,
  PANOCAM_SLICE_HEIGHT,
  PANOCAM_SLICE_WIDTH,
- PANOCAM_STITCH_SLICES,
+ PANOCAM_SLICE_INDICES,
  sliceAssetUrl,
 } from "./frames";
 
 /** Output and source geometry are deliberately fixed for predictable bot posts. */
 export const PANOCAM_JPEG_QUALITY = 90;
 export const PANOCAM_CREDIT_STRIP_HEIGHT = 24;
-export const PANOCAM_STITCHED_WIDTH = PANOCAM_STITCH_SLICES.length * PANOCAM_SLICE_WIDTH;
+export const PANOCAM_STITCHED_WIDTH = PANOCAM_PANORAMA_WIDTH;
 export const DEFAULT_IMAGE_REQUEST_TIMEOUT_MS = 10_000;
 export const POSTCARD_CROP_TOP = 220;
 export const POSTCARD_CROP_HEIGHT = 336;
@@ -80,6 +81,25 @@ function normalizeSlice(source: PhotonImage): DecodedSlice {
   height: PANOCAM_SLICE_HEIGHT,
  };
 }
+function normalizePanoramaSlice(source: PhotonImage): DecodedSlice {
+ const width = source.get_width();
+ const height = source.get_height();
+ if (height === PANOCAM_SLICE_HEIGHT && width <= PANOCAM_SLICE_WIDTH) {
+  return { image: source, width, height };
+ }
+ const normalized = resize(
+  source,
+  Math.min(width, PANOCAM_SLICE_WIDTH),
+  PANOCAM_SLICE_HEIGHT,
+  SamplingFilter.Triangle,
+ );
+ source.free();
+ return {
+  image: normalized,
+  width: normalized.get_width(),
+  height: normalized.get_height(),
+ };
+}
 
 function copySliceIntoPanorama(target: Uint8Array, slice: PhotonImage, targetX: number): void {
  const source = slice.get_raw_pixels();
@@ -89,14 +109,20 @@ function copySliceIntoPanorama(target: Uint8Array, slice: PhotonImage, targetX: 
  for (let y = 0; y < sourceHeight; y += 1) {
   const sourceStart = y * sourceWidth * 4;
   const targetStart = (y * targetWidth + targetX) * 4;
-  target.set(source.subarray(sourceStart, sourceStart + PANOCAM_SLICE_WIDTH * 4), targetStart);
+  target.set(source.subarray(sourceStart, sourceStart + sourceWidth * 4), targetStart);
  }
 }
 
-function composeStitched(slices: DecodedSlice[]): PhotonImage {
+async function composeStitched(
+ fetchImpl: typeof fetch,
+ frame: Frame,
+ timeoutMs: number,
+): Promise<PhotonImage> {
  const pixels = new Uint8Array(PANOCAM_STITCHED_WIDTH * PANOCAM_SLICE_HEIGHT * 4);
- for (let index = 0; index < slices.length; index += 1) {
-  copySliceIntoPanorama(pixels, slices[index].image, index * PANOCAM_SLICE_WIDTH);
+ for (const index of PANOCAM_SLICE_INDICES) {
+  const source = normalizePanoramaSlice(await fetchSlice(fetchImpl, frame, index, timeoutMs));
+  copySliceIntoPanorama(pixels, source.image, index * PANOCAM_SLICE_WIDTH);
+  source.image.free();
  }
  return new PhotonImage(pixels, PANOCAM_STITCHED_WIDTH, PANOCAM_SLICE_HEIGHT);
 }
@@ -151,8 +177,8 @@ function addCredit(image: PhotonImage, frame: Frame): PhotonImage {
 }
 
 /**
- * Fetch and render a camera frame. Stitched output follows the official
- * PanoCam viewer's default city-facing position and is a 1440x1080 crop.
+ * Fetch and render a camera frame. Stitched output follows the
+ * Rainier-facing production view and is a 1440x1080 crop.
  * Raw output remains the camera's diagnostic slice 9.
  */
 export async function buildImage(
@@ -170,16 +196,12 @@ export async function buildImage(
  }
 
  if (mode === "stitched") {
-  const slices: DecodedSlice[] = [];
   let joined: PhotonImage | undefined;
   let cropped: PhotonImage | undefined;
   let output: PhotonImage | undefined;
   try {
-   for (const index of PANOCAM_STITCH_SLICES) {
-    slices.push(normalizeSlice(await fetchSlice(fetchImpl, frame, index, timeoutMs)));
-   }
-   joined = composeStitched(slices);
-   const cropLeft = PANOCAM_DEFAULT_VIEW_POSITION - PANOCAM_STITCH_SLICES[0] * PANOCAM_SLICE_WIDTH;
+   joined = await composeStitched(fetchImpl, frame, timeoutMs);
+   const cropLeft = PANOCAM_RAINIER_VIEW_POSITION - PANOCAM_OUTPUT_WIDTH / 2;
    cropped = crop(joined, cropLeft, 0, cropLeft + PANOCAM_OUTPUT_WIDTH, PANOCAM_OUTPUT_HEIGHT);
    output = addCredit(cropped, frame);
    const bytes = output.get_bytes_jpeg(PANOCAM_JPEG_QUALITY);
@@ -193,7 +215,6 @@ export async function buildImage(
    output?.free();
    cropped?.free();
    joined?.free();
-   for (const slice of slices) slice.image.free();
   }
  }
 
@@ -275,7 +296,7 @@ export async function loadReferenceImages(
    if (!responseSucceeded(response)) continue;
    const bytes = new Uint8Array(await response.arrayBuffer());
    if (bytes.byteLength === 0) continue;
-   images.push({ bytes, contentType: "image/jpeg", width: PANOCAM_SLICE_WIDTH, height: POSTCARD_CROP_HEIGHT });
+   images.push({ bytes, contentType: "image/jpeg", width: PANOCAM_OUTPUT_WIDTH, height: PANOCAM_OUTPUT_HEIGHT });
   } catch {
    continue;
   }
