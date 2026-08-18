@@ -25,7 +25,7 @@
 		"MODEL_ID": "@cf/moondream/moondream3.1-9B-A2B",
 		"BSKY_SERVICE_URL": "https://ismtrainierout.selfhosted.social",
 		"IMAGE_MODE": "stitched",
-		"POSTING_ENABLED": "false",
+		"POSTING_ENABLED": "true",
 		"DEV_TOKEN": ""
 	},
 	"observability": {
