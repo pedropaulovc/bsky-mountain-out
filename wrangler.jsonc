@@ -1,43 +1,51 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "bsky-mountain-out",
-  "main": "src/index.ts",
-  "compatibility_date": "2026-08-17",
-  "compatibility_flags": ["nodejs_compat"],
-  "triggers": {
-    "crons": ["*/20 * * * *"]
-  },
-  "ai": {
-    "binding": "AI"
-  },
-  "kv_namespaces": [
-    {
-      "binding": "STATE",
-      "id": "00000000000000000000000000000000",
-      "preview_id": "00000000000000000000000000000000"
-    }
-  ],
-  "vars": {
-    "MODEL_ID": "@cf/moondream/moondream3.1-9B-A2B",
-    "IMAGE_MODE": "stitched",
-    "POSTING_ENABLED": "false",
-    "DEV_TOKEN": ""
-  },
-  "observability": {
-    "enabled": true,
-    "head_sampling_rate": 1,
-    "logs": {
-      "enabled": true,
-      "head_sampling_rate": 1,
-      "persist": false,
-      "invocation_logs": true,
-      "destinations": ["azure-appi-logs"]
-    },
-    "traces": {
-      "enabled": true,
-      "head_sampling_rate": 1,
-      "persist": false,
-      "destinations": ["azure-appi-traces"]
-    }
-  }
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "bsky-mountain-out",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-08-17",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"triggers": {
+		"crons": [
+			"*/20 * * * *"
+		]
+	},
+	"ai": {
+		"binding": "AI"
+	},
+	"kv_namespaces": [
+		{
+			"binding": "STATE",
+			"id": "b2f07d5ca4724fdcaa6a82e78a99148f",
+			"preview_id": "8817542bf88d49558da7cc79983fd758"
+		}
+	],
+	"vars": {
+		"MODEL_ID": "@cf/moondream/moondream3.1-9B-A2B",
+		"IMAGE_MODE": "stitched",
+		"POSTING_ENABLED": "false",
+		"DEV_TOKEN": ""
+	},
+	"observability": {
+		"enabled": true,
+		"head_sampling_rate": 1,
+		"logs": {
+			"enabled": true,
+			"head_sampling_rate": 1,
+			"persist": false,
+			"invocation_logs": true,
+			"destinations": [
+				"azure-appi-logs"
+			]
+		},
+		"traces": {
+			"enabled": true,
+			"head_sampling_rate": 1,
+			"persist": false,
+			"destinations": [
+				"azure-appi-traces"
+			]
+		}
+	}
 }
