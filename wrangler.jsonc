@@ -31,7 +31,6 @@
 		"BSKY_SERVICE_URL": "https://ismtrainierout.selfhosted.social",
 		"IMAGE_MODE": "stitched",
 		"POSTING_ENABLED": "true",
-		"DEV_TOKEN": ""
 	},
 	"observability": {
 		"enabled": true,
