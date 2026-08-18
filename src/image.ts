@@ -21,7 +21,7 @@ import {
 
 /** Output and source geometry are deliberately fixed for predictable bot posts. */
 export const PANOCAM_JPEG_QUALITY = 90;
-export const PANOCAM_CREDIT_STRIP_HEIGHT = 64;
+export const PANOCAM_CREDIT_STRIP_HEIGHT = 24;
 export const PANOCAM_STITCHED_WIDTH = PANOCAM_STITCH_SLICES.length * PANOCAM_SLICE_WIDTH;
 export const DEFAULT_IMAGE_REQUEST_TIMEOUT_MS = 10_000;
 export const POSTCARD_CROP_TOP = 220;
