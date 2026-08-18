@@ -73,9 +73,10 @@ Keep `POSTING_ENABLED=false` while observing the first deployment. Set it to `tr
 
 ## Image modes
 
-`IMAGE_MODE=postcard` is the production mode. It fetches slice 9 and crops pixels y=220..556 into a 512×336 postcard frame matching the reference assets. `stitched` remains available for wide skyline output. `raw-slice` fetches the full 512×1080 slice as a lower-CPU fallback. `raw-slice-unwatermarked` is an emergency diagnostic mode only and violates the normal attribution requirement; do not use it for public posts.
+`IMAGE_MODE=stitched` is the production mode. It fetches slices 6–9 and renders the official Space Needle PanoCam default city-facing view as a 1440×1080 image. `postcard` remains available as a diagnostic crop of slice 9; `raw-slice` fetches that full 512×1080 diagnostic slice. `raw-slice-unwatermarked` is an emergency diagnostic mode only and violates the normal attribution requirement; do not use it for public posts.
 
-Measure actual Worker CPU time after deployment. If the postcard path is unsuitable, switch to `stitched`, `raw-slice`, or upgrade the Worker to the Paid plan.
+The stitched crop follows the viewer's default panorama position rather than treating a single numbered slice as a fixed compass direction. This matters because the source camera's slice numbering and alignment vary across archived frames.
+Measure actual Worker CPU time after deployment. If the stitched path is unsuitable, switch to `postcard`, `raw-slice`, or upgrade the Worker to the Paid plan.
 
 ## Classifier evaluation
 

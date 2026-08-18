@@ -9,7 +9,7 @@ import {
 import type { Frame, ImageArtifact, ImageMode } from "./types";
 import {
  PANOCAM_CAMERA_URL,
- PANOCAM_CENTER_X,
+ PANOCAM_DEFAULT_VIEW_POSITION,
  PANOCAM_OUTPUT_HEIGHT,
  PANOCAM_OUTPUT_WIDTH,
  PANOCAM_RAW_SLICE_INDEX,
@@ -151,8 +151,9 @@ function addCredit(image: PhotonImage, frame: Frame): PhotonImage {
 }
 
 /**
- * Fetch and render a camera frame. Stitched output is a 1440x1080 crop whose
- * center is global panorama x≈4970; raw output is the camera's slice 9.
+ * Fetch and render a camera frame. Stitched output follows the official
+ * PanoCam viewer's default city-facing position and is a 1440x1080 crop.
+ * Raw output remains the camera's diagnostic slice 9.
  */
 export async function buildImage(
  frame: Frame,
@@ -178,7 +179,7 @@ export async function buildImage(
     slices.push(normalizeSlice(await fetchSlice(fetchImpl, frame, index, timeoutMs)));
    }
    joined = composeStitched(slices);
-   const cropLeft = PANOCAM_CENTER_X - PANOCAM_STITCH_SLICES[0] * PANOCAM_SLICE_WIDTH - PANOCAM_OUTPUT_WIDTH / 2;
+   const cropLeft = PANOCAM_DEFAULT_VIEW_POSITION - PANOCAM_STITCH_SLICES[0] * PANOCAM_SLICE_WIDTH;
    cropped = crop(joined, cropLeft, 0, cropLeft + PANOCAM_OUTPUT_WIDTH, PANOCAM_OUTPUT_HEIGHT);
    output = addCredit(cropped, frame);
    const bytes = output.get_bytes_jpeg(PANOCAM_JPEG_QUALITY);
