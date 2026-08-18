@@ -102,6 +102,22 @@ ALERT_EMAIL=pedro@vezza.com.br ./scripts/provision-alerts.sh
 
 It creates or updates the email action group and scheduled-query rules. The dead-man switch is aligned to the UTC cron schedule and filters for successful `heartbeat` events during the Pacific daylight window. Application Insights delivery can lag, so tune the alert evaluation window before enabling paging.
 
+## Production Wrangler access
+
+If production access is missing or the named profile needs refreshed scopes, run:
+
+```sh
+npx wrangler auth create twitter-mirror-vza-net-prod \
+  --browser \
+  --scopes account:read user:read workers:write workers_kv:write secrets_store:write workers_scripts:write
+```
+
+Then deploy with:
+
+```sh
+npx wrangler deploy --profile twitter-mirror-vza-net-prod
+```
+
 ## Secrets
 
 Never commit credentials. Upload them with Wrangler:
