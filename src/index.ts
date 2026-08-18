@@ -438,7 +438,7 @@ function renderDraftHtml(result: TickResult, requestedAt: Date, devToken: string
     <summary>Model output</summary>
     <pre>${htmlEscape(modelOutput)}</pre>
   </details>
-  <details>
+  <details open>
     <summary>Post (not posted)</summary>
     <img src="${imageUri}" alt="${htmlEscape(classification.altText)}">
     <dl>
