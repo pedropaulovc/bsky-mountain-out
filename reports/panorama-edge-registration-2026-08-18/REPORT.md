@@ -19,6 +19,11 @@ Horizontal alignment uses SIFT feature matching on the CLAHE-normalized grayscal
 The Hough detector reports long near-vertical consensus edges in `landmarks.json`. These are candidate avenue/building edges after registration; they are not yet labeled geographically.
 
 The consensus edge image is available at [`consensus-edges.png`](consensus-edges.png).
+### Manual landmark labeling
+
+![Sample panorama with red landmark candidates](landmark-label-sample.png)
+
+Please label the red candidates **A–E**. The circles intentionally mix long avenue/building edges, the downtown skyline anchor, and Elliott Bay/shoreline boundaries; these labels will let the next pass map structural coordinates to the Rainier-facing direction.
 
 ## Edge clusters
 
