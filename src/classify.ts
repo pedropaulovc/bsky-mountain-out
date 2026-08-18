@@ -4,7 +4,7 @@ import type { Classification, Env, Frame, ImageArtifact, Verdict } from "./types
 export const CLASSIFICATION_PROMPT = `Analyze the TARGET image or TARGET panel from the Space Needle PanoCam and determine whether Mount Rainier is visibly present. Return strict JSON only, with exactly these fields: {"visible": boolean, "confidence": number, "sceneDescription": string}. The confidence must be a number from 0 to 1. The sceneDescription becomes social-media alt text: write one or two concise factual sentences about the observable landscape, setting, light, and weather; do not start with "Image of" or "Photo of"; do not hedge with words such as "appears" or "seems"; do not editorialize; do not include the Rainier visibility verdict or source attribution because the application adds those explicitly. Do not use markdown, code fences, or commentary.`;
 
 export const VISION_PROMPT = CLASSIFICATION_PROMPT;
-export const REFERENCE_PROMPT_SUFFIX = `If the image is a labeled contact sheet, analyze only the panel labeled TARGET. Panels labeled REFERENCE are examples of Mount Rainier when visible; do not count a mountain in a REFERENCE panel as evidence that it is visible in TARGET. Compare the distinctive snow-covered summit and upper slopes, but rely on observable details in TARGET.`;
+export const REFERENCE_PROMPT_SUFFIX = `The first input image is TARGET. Any following input images are ordered REFERENCE examples; use them only to compare Mount Rainier's shape and lighting. Never count a mountain in a reference image as evidence that it is visible in TARGET.`;
 export const OPENAI_RESPONSES_PATH = "/responses";
 export const DEFAULT_OPENAI_API_URL = "https://api.openai.com/v1";
 export const DEFAULT_CLASSIFIER_EFFORT = "medium";
@@ -33,8 +33,10 @@ export interface ClassificationOptions {
  capturedAt?: Date | string | number;
  /** Additional model input fields, such as model-specific generation settings. */
  input?: Record<string, unknown>;
- /** Optional labeled contact sheet used only by the classifier. */
- referenceSheet?: ImageArtifact;
+ /** Optional full-resolution reference images sent after TARGET. */
+ referenceImages?: readonly ImageArtifact[];
+ /** Human-readable labels matching referenceImages order. */
+ referenceLabels?: readonly string[];
  /** Override the reasoning effort sent to OpenAI. */
  reasoningEffort?: string;
  /** Inject a fetch implementation for deterministic tests. */
@@ -69,29 +71,34 @@ export function imageDataUri(image: ImageArtifact): string {
  return `data:image/jpeg;base64,${base64Encode(image.bytes)}`;
 }
 
-/** Build an OpenAI Responses request without invoking the API. */
+/** Build an OpenAI Responses request with full-resolution input images. */
 export function buildVisionInput(
  image: ImageArtifact,
  prompt = CLASSIFICATION_PROMPT,
  additionalInput: Record<string, unknown> = {},
- referenceSheet?: ImageArtifact,
+ referenceImages: readonly ImageArtifact[] = [],
+ referenceLabels: readonly string[] = [],
  modelId = "gpt-5.6-luna",
  reasoningEffort = DEFAULT_CLASSIFIER_EFFORT,
 ): Record<string, unknown> {
- const question = [
-  buildClassificationPrompt(prompt),
-  referenceSheet ? REFERENCE_PROMPT_SUFFIX : "",
- ].filter(Boolean).join("\n\n");
+ const labels = referenceImages.map((_, index) => referenceLabels[index] ?? `REFERENCE ${index + 1}`);
+ const referenceInstructions = referenceImages.length === 0
+  ? ""
+  : `${REFERENCE_PROMPT_SUFFIX}\nReference order: ${labels.join(", ")}.`;
+ const question = [buildClassificationPrompt(prompt), referenceInstructions].filter(Boolean).join("\n\n");
+ const content = [
+  { type: "input_text", text: question },
+  { type: "input_image", image_url: imageDataUri(image), detail: "original" },
+  ...referenceImages.map((reference) => ({
+   type: "input_image",
+   image_url: imageDataUri(reference),
+   detail: "original",
+  })),
+ ];
  return {
   ...additionalInput,
   model: modelId,
-  input: [{
-   role: "user",
-   content: [
-    { type: "input_text", text: question },
-    { type: "input_image", image_url: imageDataUri(referenceSheet ?? image), detail: "high" },
-   ],
-  }],
+  input: [{ role: "user", content }],
   reasoning: { effort: reasoningEffort },
   text: {
    format: {
@@ -179,7 +186,8 @@ export async function classifyImage(
   image,
   prompt,
   options.input,
-  options.referenceSheet,
+  options.referenceImages,
+  options.referenceLabels,
   modelId,
   effort,
  );

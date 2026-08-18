@@ -24,12 +24,13 @@ describe("vision classification", () => {
     expect(JSON.stringify(input)).toContain("input_image");
     expect(JSON.stringify(input)).toContain("data:image/jpeg;base64,");
   });
-  it("adds explicit target/reference instructions for a contact sheet", () => {
-    const input = buildVisionInput(image, "Return strict JSON.", {}, image);
-    expect(input.input).toBeDefined();
-    expect(JSON.stringify(input)).toContain("TARGET");
-    expect(JSON.stringify(input)).toContain("REFERENCE");
-    expect(JSON.stringify(input)).toContain("input_image");
+  it("adds ordered full-resolution reference images after the target", () => {
+    const input = buildVisionInput(image, "Return strict JSON.", {}, [image], ["morning-visible"]);
+    const body = input as { input: Array<{ content: Array<{ type: string; image_url?: string }> }> };
+    expect(body.input[0].content).toHaveLength(3);
+    expect(body.input[0].content[1].type).toBe("input_image");
+    expect(body.input[0].content[2].image_url).toMatch(/^data:image\/jpeg;base64,/);
+    expect(JSON.stringify(input)).toContain("morning-visible");
   });
 
   it("turns a strict OpenAI response into explicit, bounded alt text", async () => {

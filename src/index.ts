@@ -1,7 +1,7 @@
 import { classifyImage, imageDataUri } from "./classify";
 import { decide } from "./decide";
 import { discoverLatestFrame, frameFromId } from "./frames";
-import { buildImage, buildReferenceSheet } from "./image";
+import { buildImage, buildReferenceSheet, loadReferenceImages } from "./image";
 import { postImageToBluesky } from "./bsky";
 import { createTickLogger, newTickId } from "./log";
 import type {
@@ -125,6 +125,12 @@ function imageMode(env: Env): ImageMode {
 function classifierReferenceUrls(env: Env): string[] {
   return env.CLASSIFIER_REFERENCE_URLS.split(",").map((url) => url.trim()).filter(Boolean);
 }
+function classifierReferenceLabels(urls: readonly string[]): string[] {
+  return urls.map((url) => {
+    const filename = url.split("/").pop() ?? "reference";
+    return filename.replace(/\.[^.]+$/, "").replaceAll("-", " ");
+  });
+}
 function classifierReferenceFetcher(env: Env): typeof fetch {
   return (input, init) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
@@ -189,15 +195,17 @@ export async function runTick(env: Env, options: TickOptions = {}): Promise<Tick
   }
 
   const referenceUrls = classifierReferenceUrls(env);
+  const referenceLabels = classifierReferenceLabels(referenceUrls);
   const referenceStartedAt = Date.now();
-  const referenceSheet = await buildReferenceSheet(image, referenceUrls, {
+  const referenceImages = await loadReferenceImages(referenceUrls, {
     fetcher: classifierReferenceFetcher(env),
   });
   const referenceMs = Date.now() - referenceStartedAt;
   const classifyStartedAt = Date.now();
   const classification = await classifyImage(env, image, {
     capturedAt: frame.capturedAt,
-    referenceSheet,
+    referenceImages,
+    referenceLabels,
   });
   const classifyMs = Date.now() - classifyStartedAt;
   const decision = decide({ classification, state, now });
@@ -262,7 +270,8 @@ export async function runTick(env: Env, options: TickOptions = {}): Promise<Tick
     imageMs,
     referenceMs,
     referenceRequested: referenceUrls.length,
-    referenceSheetBytes: referenceSheet?.bytes.byteLength ?? 0,
+    referenceImagesLoaded: referenceImages.length,
+    referenceImagesBytes: referenceImages.reduce((total, reference) => total + reference.bytes.byteLength, 0),
     classifyMs,
     ...(posted ? { postUri: posted.uri } : {}),
   });

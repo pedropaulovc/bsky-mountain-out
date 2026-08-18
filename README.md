@@ -85,7 +85,7 @@ OPENAI_API_KEY=... npm run eval -- --models gpt-5.6-luna
 ```
 
 The evaluator reports per-model accuracy, confusion, precision, and recall. Do not deploy a model until clear, hazy, dawn/dusk, and no-mountain examples meet the desired accuracy threshold.
-Production classification uses `CLASSIFIER_REFERENCE_URLS`, a comma-separated list of bundled `/references/*.jpg` assets. The Worker builds a labeled contact sheet with `TARGET` plus up to six `REFERENCE` tiles: one morning, afternoon, and evening example with Rainier, paired with a no-mountain frame. Moondream accepts one image input, so the sheet is classifier-only; the original target artifact remains unchanged for Bluesky posting. Remove the variable or set it empty to disable references if CPU or memory is too high.
+Production classification uses `CLASSIFIER_REFERENCE_URLS`, a comma-separated list of bundled `/references/*.jpg` assets. OpenAI receives the original `TARGET` followed by up to six full-resolution `input_image` references in the order morning visible, morning not-visible, afternoon visible, afternoon not-visible, evening visible, evening not-visible. The contact sheet remains available only for visual diagnostics at `/check?raw=1&refs=1`. Remove the variable or set it empty to disable references if request size, CPU, or memory is too high.
 
 ## Telemetry and alerts
 

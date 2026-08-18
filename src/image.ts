@@ -219,6 +219,42 @@ export const REFERENCE_SHEET_JPEG_QUALITY = 85;
 export const DEFAULT_MAX_REFERENCE_IMAGES = 6;
 
 /**
+ * Fetch full-resolution reference captures for a multi-image OpenAI request.
+ * Failed optional references are skipped; the target still remains classifiable.
+ */
+export async function loadReferenceImages(
+ referenceUrls: readonly string[],
+ options: BuildImageOptions = {},
+): Promise<ImageArtifact[]> {
+ const urls = [...new Set(referenceUrls.map((url) => url.trim()).filter(Boolean))].slice(
+  0,
+  options.maxReferences ?? DEFAULT_MAX_REFERENCE_IMAGES,
+ );
+ if (urls.length === 0) return [];
+ const fetchImpl = options.fetcher ?? options.fetch ?? fetch;
+ const timeoutMs = options.timeoutMs ?? DEFAULT_IMAGE_REQUEST_TIMEOUT_MS;
+ if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+  throw new RangeError("Reference image timeout must be a positive number");
+ }
+ const images: ImageArtifact[] = [];
+ for (const url of urls) {
+  try {
+   const response = await fetchImpl(url, {
+    method: "GET",
+    signal: AbortSignal.timeout(timeoutMs),
+   });
+   if (!responseSucceeded(response)) continue;
+   const bytes = new Uint8Array(await response.arrayBuffer());
+   if (bytes.byteLength === 0) continue;
+   images.push({ bytes, contentType: "image/jpeg", width: 512, height: 1080 });
+  } catch {
+   continue;
+  }
+ }
+ return images;
+}
+
+/**
  * Compose the target and reference captures into one labeled image because
  * the OpenAI vision request uses one input image for this classifier. The
  * returned sheet is classifier-only; the original target remains the post image.
