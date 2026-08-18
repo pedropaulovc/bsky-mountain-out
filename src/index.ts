@@ -1,4 +1,4 @@
-import { classifyImage } from "./classify";
+import { classifyImage, imageDataUri } from "./classify";
 import { decide } from "./decide";
 import { discoverLatestFrame, frameFromId } from "./frames";
 import { buildImage, buildReferenceSheet } from "./image";
@@ -297,6 +297,73 @@ function jsonResponse(data: unknown, status = 200): Response {
     headers: { "Content-Type": "application/json; charset=utf-8" },
   });
 }
+function htmlEscape(value: unknown): string {
+  return String(value).replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#39;",
+  })[character] ?? character);
+}
+
+function htmlResponse(body: string, status = 200): Response {
+  return new Response(body, {
+    status,
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
+function renderDraftHtml(result: TickResult, requestedAt: Date): string {
+  if (!result.frame || !result.image || !result.classification || !result.decision) {
+    throw new Error("Draft pipeline did not produce a complete result");
+  }
+  const classification = result.classification;
+  const proposedText = result.decision.text ?? (classification.visible ? "Yes! 🏔️" : "No.");
+  const imageUri = imageDataUri(result.image);
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Is Mt Rainier Out? Draft</title>
+  <style>
+    body { background: #101820; color: #f5f7fa; font: 16px system-ui, sans-serif; margin: 0; padding: 2rem; }
+    main { margin: auto; max-width: 960px; }
+    img { display: block; max-width: 100%; height: auto; border-radius: 0.5rem; }
+    .card { background: #1b2733; border-radius: 0.5rem; margin-top: 1rem; padding: 1rem; }
+    dt { color: #9fb3c8; margin-top: 0.75rem; }
+    dd { margin: 0.25rem 0 0; white-space: pre-wrap; }
+    code { overflow-wrap: anywhere; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Draft post</h1>
+  <img src="${imageUri}" alt="${htmlEscape(classification.altText)}">
+  <section class="card">
+    <dl>
+      <dt>Proposed post text</dt>
+      <dd>${htmlEscape(proposedText)}</dd>
+      <dt>Alt text</dt>
+      <dd>${htmlEscape(classification.altText)}</dd>
+      <dt>Decision</dt>
+      <dd>${htmlEscape(result.decision.kind)} (not posted)</dd>
+      <dt>Model verdict</dt>
+      <dd>${htmlEscape(`${classification.verdict}, confidence ${classification.confidence}`)}</dd>
+      <dt>Requested timestamp</dt>
+      <dd>${htmlEscape(requestedAt.toISOString())}</dd>
+      <dt>Frame</dt>
+      <dd><code>${htmlEscape(result.frame.id)}</code> · ${htmlEscape(result.frame.timestamp)}</dd>
+    </dl>
+  </section>
+</main>
+</body>
+</html>`;
+}
 
 export default {
   async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
@@ -306,6 +373,32 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     if (!authorized(request, env)) return jsonResponse({ error: "unauthorized" }, 401);
+
+    if (url.pathname === "/draft") {
+      if (request.method !== "GET") return htmlResponse("<h1>Method not allowed</h1>", 405);
+      const atValue = url.searchParams.get("at");
+      if (!atValue) return htmlResponse("<h1>Missing at timestamp</h1><p>Use an ISO-8601 <code>at</code> query parameter.</p>", 400);
+      const requestedAt = new Date(atValue);
+      if (!Number.isFinite(requestedAt.getTime())) {
+        return htmlResponse(`<h1>Invalid timestamp</h1><p>${htmlEscape(atValue)}</p>`, 400);
+      }
+      try {
+        const result = await runTick(env, {
+          now: requestedAt,
+          frameId: url.searchParams.get("frame") ?? undefined,
+          ignoreLastFrame: true,
+          persist: false,
+          allowPost: false,
+          bypassDaylight: true,
+        });
+        if (result.status !== "success") {
+          return htmlResponse(`<h1>Draft unavailable</h1><p>${htmlEscape(result.status)}</p>`, 502);
+        }
+        return htmlResponse(renderDraftHtml(result, requestedAt));
+      } catch (error) {
+        return htmlResponse(`<h1>Draft pipeline failed</h1><pre>${htmlEscape(errorMessage(error))}</pre>`, 502);
+      }
+    }
 
     if (url.pathname === "/status") {
       return jsonResponse(await readState(env));
