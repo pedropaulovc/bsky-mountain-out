@@ -119,7 +119,11 @@ export function isOperationalHour(now: Date): boolean {
 }
 
 function imageMode(env: Env): ImageMode {
-  if (env.IMAGE_MODE === "raw-slice" || env.IMAGE_MODE === "raw-slice-unwatermarked") {
+  if (
+    env.IMAGE_MODE === "postcard" ||
+    env.IMAGE_MODE === "raw-slice" ||
+    env.IMAGE_MODE === "raw-slice-unwatermarked"
+  ) {
     return env.IMAGE_MODE;
   }
   return "stitched";

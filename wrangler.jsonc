@@ -28,7 +28,7 @@
 		"CLASSIFIER_REASONING_EFFORT": "medium",
 		"CLASSIFIER_REFERENCE_URLS": "/references/morning-visible.jpg,/references/morning-not-visible.jpg,/references/afternoon-visible.jpg,/references/afternoon-not-visible.jpg,/references/evening-visible.jpg,/references/evening-not-visible.jpg",
 		"BSKY_SERVICE_URL": "https://ismtrainierout.selfhosted.social",
-		"IMAGE_MODE": "stitched",
+		"IMAGE_MODE": "postcard",
 		"POSTING_ENABLED": "true",
 	},
 	"observability": {

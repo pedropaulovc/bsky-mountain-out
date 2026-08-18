@@ -24,6 +24,8 @@ export const PANOCAM_JPEG_QUALITY = 90;
 export const PANOCAM_CREDIT_STRIP_HEIGHT = 64;
 export const PANOCAM_STITCHED_WIDTH = PANOCAM_STITCH_SLICES.length * PANOCAM_SLICE_WIDTH;
 export const DEFAULT_IMAGE_REQUEST_TIMEOUT_MS = 10_000;
+export const POSTCARD_CROP_TOP = 220;
+export const POSTCARD_CROP_HEIGHT = 336;
 
 export interface BuildImageOptions {
  /** Injectable image fetch implementation for tests and development routes. */
@@ -162,7 +164,7 @@ export async function buildImage(
  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
   throw new RangeError("Image request timeout must be a positive number");
  }
- if (mode !== "stitched" && mode !== "raw-slice" && mode !== "raw-slice-unwatermarked") {
+ if (mode !== "stitched" && mode !== "postcard" && mode !== "raw-slice" && mode !== "raw-slice-unwatermarked") {
   throw new Error(`Unsupported image mode: ${mode}`);
  }
 
@@ -196,6 +198,32 @@ export async function buildImage(
 
  const source = await fetchSlice(fetchImpl, frame, PANOCAM_RAW_SLICE_INDEX, timeoutMs);
  const normalized = normalizeSlice(source);
+ if (mode === "postcard") {
+  let cropped: PhotonImage | undefined;
+  let output: PhotonImage | undefined;
+  try {
+   cropped = crop(
+    normalized.image,
+    0,
+    POSTCARD_CROP_TOP,
+    PANOCAM_SLICE_WIDTH,
+    POSTCARD_CROP_TOP + POSTCARD_CROP_HEIGHT,
+   );
+   output = addCredit(cropped, frame);
+   const bytes = output.get_bytes_jpeg(PANOCAM_JPEG_QUALITY);
+   return {
+    bytes: new Uint8Array(bytes),
+    contentType: "image/jpeg",
+    width: PANOCAM_SLICE_WIDTH,
+    height: POSTCARD_CROP_HEIGHT,
+   };
+  } finally {
+   output?.free();
+   cropped?.free();
+   normalized.image.free();
+  }
+ }
+
  let output: PhotonImage | undefined;
  try {
   output = mode === "raw-slice-unwatermarked"
@@ -246,7 +274,7 @@ export async function loadReferenceImages(
    if (!responseSucceeded(response)) continue;
    const bytes = new Uint8Array(await response.arrayBuffer());
    if (bytes.byteLength === 0) continue;
-   images.push({ bytes, contentType: "image/jpeg", width: 512, height: 1080 });
+   images.push({ bytes, contentType: "image/jpeg", width: PANOCAM_SLICE_WIDTH, height: POSTCARD_CROP_HEIGHT });
   } catch {
    continue;
   }

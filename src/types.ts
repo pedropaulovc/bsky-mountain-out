@@ -1,6 +1,6 @@
 export type Verdict = "visible" | "not-visible";
 
-export type ImageMode = "stitched" | "raw-slice" | "raw-slice-unwatermarked";
+export type ImageMode = "stitched" | "postcard" | "raw-slice" | "raw-slice-unwatermarked";
 
 export interface Frame {
   id: string;

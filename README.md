@@ -73,9 +73,9 @@ Keep `POSTING_ENABLED=false` while observing the first deployment. Set it to `tr
 
 ## Image modes
 
-`IMAGE_MODE=stitched` is the normal mode. It fetches slices 8–11 and creates a readable skyline crop. `raw-slice` fetches slice 9 and is the lower-CPU fallback. `raw-slice-unwatermarked` is an emergency diagnostic mode only and violates the normal attribution requirement; do not use it for public posts.
+`IMAGE_MODE=postcard` is the production mode. It fetches slice 9 and crops pixels y=220..556 into a 512×336 postcard frame matching the reference assets. `stitched` remains available for wide skyline output. `raw-slice` fetches the full 512×1080 slice as a lower-CPU fallback. `raw-slice-unwatermarked` is an emergency diagnostic mode only and violates the normal attribution requirement; do not use it for public posts.
 
-Measure actual Worker CPU time after deployment. If the free plan cannot run the stitched path, switch to `raw-slice` or upgrade the Worker to the Paid plan.
+Measure actual Worker CPU time after deployment. If the postcard path is unsuitable, switch to `stitched`, `raw-slice`, or upgrade the Worker to the Paid plan.
 
 ## Classifier evaluation
 
