@@ -24,6 +24,12 @@ describe("vision classification", () => {
     });
     expect(input.image).toMatch(/^data:image\/jpeg;base64,/);
   });
+  it("adds explicit target/reference instructions for a contact sheet", () => {
+    const input = buildVisionInput(image, "Return strict JSON.", {}, image);
+    expect(input.question).toContain("TARGET");
+    expect(input.question).toContain("REFERENCE");
+    expect(input.image).toMatch(/^data:image\/jpeg;base64,/);
+  });
 
   it("turns a strict model response into explicit, bounded alt text", async () => {
     const result = await classifyImage(

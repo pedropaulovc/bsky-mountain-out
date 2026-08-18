@@ -63,6 +63,7 @@ export interface Env {
   BSKY_SERVICE_URL: string;
   MODEL_ID: string;
   IMAGE_MODE: ImageMode;
+  CLASSIFIER_REFERENCE_URLS: string;
   POSTING_ENABLED: string;
   DEV_TOKEN: string;
 }

@@ -56,6 +56,7 @@ curl -H "Authorization: Bearer $DEV_TOKEN" "http://localhost:8787/check?raw=1"
 - `GET /status` — current KV state
 - `GET /check` — dry-run frame, image, classifier, and decision pipeline
 - `GET /check?raw=1` — returns the generated JPEG for crop/watermark review
+- `GET /check?raw=1&refs=1` — returns the classifier contact sheet with target and reference tiles
 - `GET /check?post=1` — explicitly permits a real post when `POSTING_ENABLED=true`
 
 Keep `POSTING_ENABLED=false` while observing the first deployment. Set it to `true` only after verifying classifier decisions, CPU time, image attribution, and alt text.
@@ -75,6 +76,7 @@ CF_ACCOUNT_ID=... CF_API_TOKEN=... npm run eval -- --models @cf/moondream/moondr
 ```
 
 The evaluator reports per-model accuracy, confusion, precision, and recall. Do not deploy a model until clear, hazy, dawn/dusk, and no-mountain examples meet the desired accuracy threshold.
+Production classification uses `CLASSIFIER_REFERENCE_URLS`, a comma-separated list of public PanoCam images. The Worker builds a labeled contact sheet with `TARGET` plus up to four `REFERENCE` tiles because Moondream accepts one image input. The original target artifact remains unchanged for Bluesky posting. Remove the variable or set it empty to disable references if CPU or memory is too high.
 
 ## Telemetry and alerts
 

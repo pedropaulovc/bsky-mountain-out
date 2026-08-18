@@ -23,6 +23,7 @@
 	],
 	"vars": {
 		"MODEL_ID": "@cf/moondream/moondream3.1-9B-A2B",
+		"CLASSIFIER_REFERENCE_URLS": "https://d3omclagh7m7mg.cloudfront.net/assets/2025/03/25/2025_0325_120000/slice9.jpg,https://d3omclagh7m7mg.cloudfront.net/assets/2025/03/25/2025_0325_130000/slice9.jpg,https://d3omclagh7m7mg.cloudfront.net/assets/2025/03/25/2025_0325_140000/slice9.jpg",
 		"BSKY_SERVICE_URL": "https://ismtrainierout.selfhosted.social",
 		"IMAGE_MODE": "stitched",
 		"POSTING_ENABLED": "true",

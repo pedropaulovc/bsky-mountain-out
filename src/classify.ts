@@ -4,6 +4,7 @@ import type { Classification, Env, Frame, ImageArtifact, Verdict } from "./types
 export const CLASSIFICATION_PROMPT = `Analyze this JPEG image from the Space Needle PanoCam. Determine whether Mount Rainier is visibly present in the image. Return strict JSON only, with exactly these fields: {"visible": boolean, "confidence": number, "sceneDescription": string}. The confidence must be a number from 0 to 1. The sceneDescription must be a concise, factual description of only observable scene content. Do not use markdown, code fences, or commentary.`;
 
 export const VISION_PROMPT = CLASSIFICATION_PROMPT;
+export const REFERENCE_PROMPT_SUFFIX = `If the image is a labeled contact sheet, analyze only the panel labeled TARGET. Panels labeled REFERENCE are examples of Mount Rainier when visible; do not count a mountain in a REFERENCE panel as evidence that it is visible in TARGET. Compare the distinctive snow-covered summit and upper slopes, but rely on observable details in TARGET.`;
 
 export interface ClassificationOptions {
  /** Override the model configured on the Worker. */
@@ -18,6 +19,8 @@ export interface ClassificationOptions {
  capturedAt?: Date | string | number;
  /** Additional model input fields, such as model-specific generation settings. */
  input?: Record<string, unknown>;
+ /** Optional labeled contact sheet used only by the classifier. */
+ referenceSheet?: ImageArtifact;
 }
 
 export type ClassificationTimestamp = Date | string | number;
@@ -53,12 +56,16 @@ export function buildVisionInput(
  image: ImageArtifact,
  prompt = CLASSIFICATION_PROMPT,
  additionalInput: Record<string, unknown> = {},
+ referenceSheet?: ImageArtifact,
 ): Record<string, unknown> {
- const question = buildClassificationPrompt(prompt);
+ const question = [
+  buildClassificationPrompt(prompt),
+  referenceSheet ? REFERENCE_PROMPT_SUFFIX : "",
+ ].filter(Boolean).join("\n\n");
  return {
   task: "query",
   ...additionalInput,
-  image: imageDataUri(image),
+  image: imageDataUri(referenceSheet ?? image),
   question,
   stream: false,
   reasoning: false,
@@ -133,7 +140,7 @@ export async function classifyImage(
  }
 
  const prompt = buildClassificationPrompt(options.prompt);
- const modelInput = buildVisionInput(image, prompt, options.input);
+ const modelInput = buildVisionInput(image, prompt, options.input, options.referenceSheet);
  const raw = await env.AI.run(modelId, modelInput);
  const parsed = parseClassificationResponse(raw);
  const timestamp = options.timestamp ?? options.altDateTime ?? options.capturedAt;

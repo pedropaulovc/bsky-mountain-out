@@ -32,6 +32,8 @@ export interface BuildImageOptions {
  fetcher?: typeof fetch;
  /** Maximum milliseconds spent downloading one slice. */
  timeoutMs?: number;
+ /** Maximum reference tiles in a classifier contact sheet. */
+ maxReferences?: number;
 }
 
 interface DecodedSlice {
@@ -199,6 +201,123 @@ export async function buildImage(
  } finally {
   output?.free();
   if (output !== normalized.image) normalized.image.free();
+ }
+}
+export const REFERENCE_PANEL_WIDTH = 512;
+export const REFERENCE_PANEL_HEIGHT = 384;
+export const REFERENCE_SHEET_JPEG_QUALITY = 85;
+export const DEFAULT_MAX_REFERENCE_IMAGES = 4;
+
+/**
+ * Compose the target and reference captures into one labeled image because
+ * Moondream's Workers AI schema accepts one image, not an image array.
+ * The returned sheet is classifier-only; the original target remains the post image.
+ */
+export async function buildReferenceSheet(
+ target: ImageArtifact,
+ referenceUrls: readonly string[],
+ options: BuildImageOptions = {},
+): Promise<ImageArtifact | undefined> {
+ const urls = [...new Set(referenceUrls.map((url) => url.trim()).filter(Boolean))].slice(
+  0,
+  options.maxReferences ?? DEFAULT_MAX_REFERENCE_IMAGES,
+ );
+ if (urls.length === 0) return undefined;
+
+ const fetchImpl = options.fetcher ?? options.fetch ?? fetch;
+ const timeoutMs = options.timeoutMs ?? DEFAULT_IMAGE_REQUEST_TIMEOUT_MS;
+ if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+  throw new RangeError("Reference image timeout must be a positive number");
+ }
+
+ const panels: PhotonImage[] = [];
+ const labels: string[] = [];
+ let sheet: PhotonImage | undefined;
+ try {
+  let targetSource: PhotonImage | undefined;
+  try {
+   targetSource = PhotonImage.new_from_byteslice(target.bytes);
+   panels.push(resize(targetSource, REFERENCE_PANEL_WIDTH, REFERENCE_PANEL_HEIGHT, SamplingFilter.Triangle));
+  } finally {
+   targetSource?.free();
+  }
+  labels.push("TARGET");
+
+  for (const [index, url] of urls.entries()) {
+   let source: PhotonImage | undefined;
+   try {
+    const response = await fetchImpl(url, {
+     method: "GET",
+     signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!responseSucceeded(response)) continue;
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (bytes.byteLength === 0) continue;
+    source = PhotonImage.new_from_byteslice(bytes);
+    panels.push(resize(source, REFERENCE_PANEL_WIDTH, REFERENCE_PANEL_HEIGHT, SamplingFilter.Triangle));
+    labels.push(`REFERENCE ${index + 1}`);
+   } catch {
+    continue;
+   } finally {
+    source?.free();
+   }
+  }
+
+  if (panels.length === 1) return undefined;
+
+  const columns = 2;
+  const rows = Math.ceil(panels.length / columns);
+  const sheetWidth = columns * REFERENCE_PANEL_WIDTH;
+  const sheetHeight = rows * REFERENCE_PANEL_HEIGHT;
+  const pixels = new Uint8Array(sheetWidth * sheetHeight * 4);
+  for (const [index, panel] of panels.entries()) {
+   const panelPixels = panel.get_raw_pixels();
+   const column = index % columns;
+   const row = Math.floor(index / columns);
+   const left = column * REFERENCE_PANEL_WIDTH;
+   const top = row * REFERENCE_PANEL_HEIGHT;
+   for (let y = 0; y < REFERENCE_PANEL_HEIGHT; y += 1) {
+    const sourceStart = y * REFERENCE_PANEL_WIDTH * 4;
+    const targetStart = ((top + y) * sheetWidth + left) * 4;
+    pixels.set(
+     panelPixels.subarray(sourceStart, sourceStart + REFERENCE_PANEL_WIDTH * 4),
+     targetStart,
+    );
+   }
+   for (let y = 0; y < 32; y += 1) {
+    for (let x = 0; x < REFERENCE_PANEL_WIDTH; x += 1) {
+     const offset = ((top + y) * sheetWidth + left + x) * 4;
+     pixels[offset] = 8;
+     pixels[offset + 1] = 15;
+     pixels[offset + 2] = 24;
+     pixels[offset + 3] = 255;
+    }
+   }
+  }
+
+  sheet = new PhotonImage(pixels, sheetWidth, sheetHeight);
+  for (const [index, label] of labels.entries()) {
+   const column = index % columns;
+   const row = Math.floor(index / columns);
+   draw_text_with_color(
+    sheet,
+    label,
+    column * REFERENCE_PANEL_WIDTH + 16,
+    row * REFERENCE_PANEL_HEIGHT + 23,
+    18,
+    new Rgba(255, 255, 255, 255),
+   );
+  }
+  const bytes = sheet.get_bytes_jpeg(REFERENCE_SHEET_JPEG_QUALITY);
+  return {
+   bytes: new Uint8Array(bytes),
+   contentType: "image/jpeg",
+   width: sheetWidth,
+   height: sheetHeight,
+  };
+ } finally {
+  sheet?.free();
+  for (const panel of panels) panel.free();
  }
 }
 

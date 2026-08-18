@@ -1,7 +1,7 @@
 import { classifyImage } from "./classify";
 import { decide } from "./decide";
 import { discoverLatestFrame, frameFromId } from "./frames";
-import { buildImage } from "./image";
+import { buildImage, buildReferenceSheet } from "./image";
 import { postImageToBluesky } from "./bsky";
 import { createTickLogger, newTickId } from "./log";
 import type {
@@ -26,6 +26,7 @@ interface TickOptions {
   ignoreLastFrame?: boolean;
   frameId?: string;
   rawOnly?: boolean;
+  referenceOnly?: boolean;
   bypassDaylight?: boolean;
 }
 
@@ -122,6 +123,9 @@ function imageMode(env: Env): ImageMode {
   }
   return "stitched";
 }
+function classifierReferenceUrls(env: Env): string[] {
+  return env.CLASSIFIER_REFERENCE_URLS.split(",").map((url) => url.trim()).filter(Boolean);
+}
 
 function botHandle(identifier: string | undefined): string {
   const trimmed = identifier?.trim();
@@ -165,18 +169,31 @@ export async function runTick(env: Env, options: TickOptions = {}): Promise<Tick
   const image = await buildImage(frame, imageMode(env), botHandle(env.BSKY_IDENTIFIER));
   const imageMs = Date.now() - startedAt;
   if (options.rawOnly) {
+    const referenceUrls = options.referenceOnly ? classifierReferenceUrls(env) : [];
+    const referenceSheet = options.referenceOnly
+      ? await buildReferenceSheet(image, referenceUrls)
+      : undefined;
+    const diagnosticImage = referenceSheet ?? image;
     tick.log("image-ready", {
       event: "image_ready",
       frame: frame.id,
       imageMode: imageMode(env),
-      imageBytes: image.bytes.byteLength,
+      imageBytes: diagnosticImage.bytes.byteLength,
+      referenceRequested: referenceUrls.length,
       imageMs,
     });
-    return { status: "success", tickId, frame, image, state };
+    return { status: "success", tickId, frame, image: diagnosticImage, state };
   }
 
+  const referenceUrls = classifierReferenceUrls(env);
+  const referenceStartedAt = Date.now();
+  const referenceSheet = await buildReferenceSheet(image, referenceUrls);
+  const referenceMs = Date.now() - referenceStartedAt;
   const classifyStartedAt = Date.now();
-  const classification = await classifyImage(env, image, frame);
+  const classification = await classifyImage(env, image, {
+    capturedAt: frame.capturedAt,
+    referenceSheet,
+  });
   const classifyMs = Date.now() - classifyStartedAt;
   const decision = decide({ classification, state, now });
   const observedState = { ...cloneState(decision.state), lastFrame: frame.id };
@@ -238,8 +255,10 @@ export async function runTick(env: Env, options: TickOptions = {}): Promise<Tick
     postingEnabled: canPost,
     posted: Boolean(posted),
     imageMs,
+    referenceMs,
+    referenceRequested: referenceUrls.length,
+    referenceSheetBytes: referenceSheet?.bytes.byteLength ?? 0,
     classifyMs,
-    imageBytes: image.bytes.byteLength,
     ...(posted ? { postUri: posted.uri } : {}),
   });
   return { status: "success", tickId, frame, image, classification, decision, posted, state: nextState };
@@ -294,6 +313,7 @@ export default {
         ignoreLastFrame: true,
         persist: requestedPost && postingEnabled(env),
         rawOnly,
+        referenceOnly: rawOnly && url.searchParams.get("refs") === "1",
         bypassDaylight: true,
       });
       if (rawOnly && result.image) {
