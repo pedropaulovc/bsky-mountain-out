@@ -168,12 +168,36 @@ export const createAltText = buildAltText;
 
 const OPENAI_REQUEST_TIMEOUT_MS = 60_000;
 
-/** Run the OpenAI Responses vision request and return the shared classification shape. */
+export type ClassifierEnv = Pick<
+ Env,
+ "OPENAI_API_KEY" | "OPENAI_API_URL" | "MODEL_ID" | "CLASSIFIER_REASONING_EFFORT"
+>;
+
+export interface ClassificationDebug {
+ input: Record<string, unknown>;
+ output: unknown;
+}
+
+export interface DetailedClassification {
+ classification: Classification;
+ debug: ClassificationDebug;
+}
+
 export async function classifyImage(
- env: Pick<Env, "OPENAI_API_KEY" | "OPENAI_API_URL" | "MODEL_ID" | "CLASSIFIER_REASONING_EFFORT">,
+ env: ClassifierEnv,
  image: ImageArtifact,
  input?: ClassificationInput,
 ): Promise<Classification> {
+ const result = await classifyImageDetailed(env, image, input);
+ return result.classification;
+}
+
+/** Run OpenAI and retain raw request/response data for the protected draft page. */
+export async function classifyImageDetailed(
+ env: ClassifierEnv,
+ image: ImageArtifact,
+ input?: ClassificationInput,
+): Promise<DetailedClassification> {
  const options = normalizeOptions(input);
  const modelId = options.modelId ?? env.MODEL_ID;
  const apiKey = env.OPENAI_API_KEY?.trim();
@@ -215,8 +239,11 @@ export async function classifyImage(
  const parsed = parseClassificationResponse(raw);
  const timestamp = options.timestamp ?? options.altDateTime ?? options.capturedAt;
  return {
-  ...parsed,
-  altText: buildAltText(parsed.sceneDescription, parsed.visible, timestamp),
+  classification: {
+   ...parsed,
+   altText: buildAltText(parsed.sceneDescription, parsed.visible, timestamp),
+  },
+  debug: { input: modelInput, output: raw },
  };
 }
 

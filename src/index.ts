@@ -1,4 +1,5 @@
-import { classifyImage, imageDataUri } from "./classify";
+import { classifyImageDetailed, imageDataUri } from "./classify";
+import type { ClassificationDebug } from "./classify";
 import { decide } from "./decide";
 import { discoverLatestFrame, frameFromId } from "./frames";
 import { buildImage, buildReferenceSheet, loadReferenceImages } from "./image";
@@ -37,6 +38,7 @@ interface TickResult {
   classification?: Classification;
   decision?: Decision;
   posted?: { uri: string; cid: string };
+  classificationDebug?: ClassificationDebug;
   state: BotState;
 }
 
@@ -202,11 +204,13 @@ export async function runTick(env: Env, options: TickOptions = {}): Promise<Tick
   });
   const referenceMs = Date.now() - referenceStartedAt;
   const classifyStartedAt = Date.now();
-  const classification = await classifyImage(env, image, {
+  const classified = await classifyImageDetailed(env, image, {
     capturedAt: frame.capturedAt,
     referenceImages,
     referenceLabels,
   });
+  const classification = classified.classification;
+  const classificationDebug = classified.debug;
   const classifyMs = Date.now() - classifyStartedAt;
   const decision = decide({ classification, state, now });
   const observedState = { ...cloneState(decision.state), lastFrame: frame.id };
@@ -275,7 +279,7 @@ export async function runTick(env: Env, options: TickOptions = {}): Promise<Tick
     classifyMs,
     ...(posted ? { postUri: posted.uri } : {}),
   });
-  return { status: "success", tickId, frame, image, classification, decision, posted, state: nextState };
+  return { status: "success", tickId, frame, image, classification, classificationDebug, decision, posted, state: nextState };
 }
 
 function safeSecretEqual(left: string, right: string): boolean {
@@ -320,6 +324,39 @@ function htmlResponse(body: string, status = 200): Response {
   });
 }
 
+interface DraftModelInput {
+  model: string;
+  effort: string;
+  prompt: string;
+  images: Array<{ label: string; dataUri: string }>;
+}
+
+function draftRecord(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined;
+}
+
+function inspectDraftModelInput(input: Record<string, unknown>): DraftModelInput {
+  const reasoning = draftRecord(input.reasoning);
+  const request = Array.isArray(input.input) ? draftRecord(input.input[0]) : undefined;
+  const content = request && Array.isArray(request.content) ? request.content : [];
+  const promptItem = content
+    .map((item) => draftRecord(item))
+    .find((item) => item?.type === "input_text");
+  const images = content
+    .map((item) => draftRecord(item))
+    .filter((item): item is Record<string, unknown> => item?.type === "input_image")
+    .flatMap((item, index) => typeof item.image_url === "string"
+      ? [{ label: index === 0 ? "TARGET" : `REFERENCE ${index}`, dataUri: item.image_url }]
+      : []);
+  return {
+    model: typeof input.model === "string" ? input.model : "unknown",
+    effort: typeof reasoning?.effort === "string" ? reasoning.effort : "unknown",
+    prompt: typeof promptItem?.text === "string" ? promptItem.text : "",
+    images,
+  };
+}
 function renderDraftHtml(result: TickResult, requestedAt: Date): string {
   if (!result.frame || !result.image || !result.classification || !result.decision) {
     throw new Error("Draft pipeline did not produce a complete result");
@@ -327,6 +364,15 @@ function renderDraftHtml(result: TickResult, requestedAt: Date): string {
   const classification = result.classification;
   const proposedText = result.decision.text ?? (classification.visible ? "Yes! 🏔️" : "No.");
   const imageUri = imageDataUri(result.image);
+  const modelInput = result.classificationDebug
+    ? inspectDraftModelInput(result.classificationDebug.input)
+    : undefined;
+  const modelOutput = result.classificationDebug
+    ? JSON.stringify(result.classificationDebug.output, null, 2)
+    : "Diagnostics unavailable";
+  const inputImages = modelInput?.images.map(({ label, dataUri }) =>
+    `<figure><figcaption>${htmlEscape(label)}</figcaption><img src="${htmlEscape(dataUri)}" alt="${htmlEscape(label)} model input"></figure>`,
+  ).join("") ?? "";
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -335,19 +381,42 @@ function renderDraftHtml(result: TickResult, requestedAt: Date): string {
   <title>Is Mt Rainier Out? Draft</title>
   <style>
     body { background: #101820; color: #f5f7fa; font: 16px system-ui, sans-serif; margin: 0; padding: 2rem; }
-    main { margin: auto; max-width: 960px; }
+    main { margin: auto; max-width: 1100px; }
     img { display: block; max-width: 100%; height: auto; border-radius: 0.5rem; }
-    .card { background: #1b2733; border-radius: 0.5rem; margin-top: 1rem; padding: 1rem; }
+    details { background: #1b2733; border-radius: 0.5rem; margin-top: 1rem; padding: 1rem; }
+    summary { cursor: pointer; font-weight: 700; }
+    pre { overflow: auto; white-space: pre-wrap; }
+    dl { margin-bottom: 0; }
     dt { color: #9fb3c8; margin-top: 0.75rem; }
     dd { margin: 0.25rem 0 0; white-space: pre-wrap; }
+    .input-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-top: 1rem; }
+    figure { margin: 0; }
+    figcaption { color: #9fb3c8; margin-bottom: 0.35rem; }
     code { overflow-wrap: anywhere; }
   </style>
 </head>
 <body>
 <main>
   <h1>Draft post</h1>
-  <img src="${imageUri}" alt="${htmlEscape(classification.altText)}">
-  <section class="card">
+  <details>
+    <summary>AI model input${modelInput ? ` · ${modelInput.images.length} images` : ""}</summary>
+    <dl>
+      <dt>Model</dt>
+      <dd>${htmlEscape(modelInput?.model ?? "unknown")}</dd>
+      <dt>Reasoning effort</dt>
+      <dd>${htmlEscape(modelInput?.effort ?? "unknown")}</dd>
+      <dt>Prompt</dt>
+      <dd><pre>${htmlEscape(modelInput?.prompt ?? "Diagnostics unavailable")}</pre></dd>
+    </dl>
+    <div class="input-grid">${inputImages}</div>
+  </details>
+  <details>
+    <summary>Model output</summary>
+    <pre>${htmlEscape(modelOutput)}</pre>
+  </details>
+  <details>
+    <summary>Post (not posted)</summary>
+    <img src="${imageUri}" alt="${htmlEscape(classification.altText)}">
     <dl>
       <dt>Proposed post text</dt>
       <dd>${htmlEscape(proposedText)}</dd>
@@ -362,7 +431,7 @@ function renderDraftHtml(result: TickResult, requestedAt: Date): string {
       <dt>Frame</dt>
       <dd><code>${htmlEscape(result.frame.id)}</code> · ${htmlEscape(result.frame.timestamp)}</dd>
     </dl>
-  </section>
+  </details>
 </main>
 </body>
 </html>`;
