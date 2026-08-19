@@ -1,6 +1,6 @@
 # Panocam panorama alignment report
 
-Generated: `2026-08-19T01:26:57.202Z`
+Generated: `2026-08-19T01:39:55.235Z`
 Sample manifest: `reports/panorama-alignment-2026-08-18/sample-input.json`
 Reference: `assets/panocam-alignment-reference.jpg`
 Reference source frame: `2025_0325_130000` (clear, Rainier visible).
@@ -19,7 +19,7 @@ Reference source frame: `2025_0325_130000` (clear, Rainier visible).
 1. Fetch each frame's full-width `thumbnail.jpg`.
 2. Resize to a 512×96 structural representation and compare three vertical edge bands over all circular horizontal shifts.
 3. Require a score/margin gate, agreement between vertical bands, and at least four of eight inlier horizontal tiles.
-4. Apply the measured shift to the true-width cached panorama, crop the canonical 512×384 Rainier window, resize it to 1440×1080, and add the production attribution strip.
+4. Apply the measured shift to the true-width cached panorama, crop the native 1440×1080 Rainier-facing view, and add the production attribution strip without upscaling.
 
 ## Final adjusted crops
 

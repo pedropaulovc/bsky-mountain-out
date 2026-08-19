@@ -73,7 +73,7 @@ Keep `POSTING_ENABLED=false` while observing the first deployment. Set it to `tr
 
 ## Image modes
 
-`IMAGE_MODE=stitched` is the production mode. It loads all 17 numbered PanoCam slices, preserves their source widths, aligns the resulting panorama against the configured structural reference thumbnail, extracts the canonical 512×384 Rainier window, and resizes it to 1440×1080. `postcard` uses the same 512×384 source window at native size; `raw-slice` fetches the full diagnostic slice 9. `raw-slice-unwatermarked` is an emergency diagnostic mode only and violates the normal attribution requirement; do not use it for public posts.
+`IMAGE_MODE=stitched` is the production mode. It loads all 17 numbered PanoCam slices, preserves their source widths, aligns the resulting panorama against the configured structural reference thumbnail, and crops the native 1440×1080 Rainier-facing view without upscaling. `postcard` uses the same Rainier-facing source direction as a 512×384 diagnostic crop; `raw-slice` fetches the full diagnostic slice 9. `raw-slice-unwatermarked` is an emergency diagnostic mode only and violates the normal attribution requirement; do not use it for public posts.
 
 The alignment uses circular horizontal structural registration rather than the viewer compass. It records the measured shift, score, confidence margin, vertical-band agreement, and inlier-tile count in Worker telemetry. A frame that fails the alignment confidence gate fails the stitched render instead of silently posting the old fixed crop.
 
