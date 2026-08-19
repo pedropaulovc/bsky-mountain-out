@@ -3,6 +3,8 @@ import type { Frame } from "./types";
 /** Public camera constants used by the worker and the diagnostic check route. */
 export const PANOCAM_ASSET_BASE_URL = "https://d3omclagh7m7mg.cloudfront.net/assets";
 export const PANOCAM_SHARE_FILENAME = "share.jpg";
+export const PANOCAM_THUMBNAIL_FILENAME = "thumbnail.jpg";
+export const PANOCAM_ALIGNMENT_REFERENCE_URL = "/panocam-alignment-reference.jpg";
 export const PANOCAM_SLICE_FILENAME = "slice";
 export const PANOCAM_CAMERA_URL = "https://www.spaceneedle.com/webcam";
 export const PANOCAM_PROBE_COUNT = 12;
@@ -12,7 +14,10 @@ export const PANOCAM_SLICE_COUNT = 17;
 export const PANOCAM_SLICE_INDICES = Array.from({ length: PANOCAM_SLICE_COUNT }, (_, index) => index);
 export const PANOCAM_PANORAMA_WIDTH = PANOCAM_SLICE_COUNT * PANOCAM_SLICE_WIDTH;
 export const PANOCAM_RAW_SLICE_INDEX = 9;
-export const PANOCAM_RAINIER_VIEW_POSITION = 4970;
+export const PANOCAM_RAINIER_CROP_LEFT = PANOCAM_RAW_SLICE_INDEX * PANOCAM_SLICE_WIDTH;
+export const PANOCAM_RAINIER_CROP_TOP = 220;
+export const PANOCAM_RAINIER_CROP_WIDTH = PANOCAM_SLICE_WIDTH;
+export const PANOCAM_RAINIER_CROP_HEIGHT = 384;
 export const PANOCAM_OUTPUT_WIDTH = 1440;
 export const PANOCAM_OUTPUT_HEIGHT = 1080;
 export const PANOCAM_INTERVAL_MINUTES = 10;
@@ -198,4 +203,7 @@ export async function discoverLatestFrame(
 export function sliceAssetUrl(frame: Frame, index: number): string {
  if (!Number.isInteger(index) || index < 0) throw new Error(`Invalid PanoCam slice index: ${index}`);
  return `${frame.assetBaseUrl}/${PANOCAM_SLICE_FILENAME}${index}.jpg`;
+}
+export function thumbnailAssetUrl(frame: Frame): string {
+ return `${frame.assetBaseUrl}/${PANOCAM_THUMBNAIL_FILENAME}`;
 }

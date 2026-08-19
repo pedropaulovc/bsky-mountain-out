@@ -137,7 +137,7 @@ function classifierReferenceLabels(urls: readonly string[]): string[] {
     return filename.replace(/\.[^.]+$/, "").replaceAll("-", " ");
   });
 }
-function classifierReferenceFetcher(env: Env): typeof fetch {
+function assetAwareFetcher(env: Env): typeof fetch {
   return (input, init) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     if (url.startsWith("/") && env.ASSETS) {
@@ -181,12 +181,15 @@ export async function runTick(env: Env, options: TickOptions = {}): Promise<Tick
   }
 
   const startedAt = Date.now();
-  const image = await buildImage(frame, imageMode(env));
+  const image = await buildImage(frame, imageMode(env), {
+    fetcher: assetAwareFetcher(env),
+    alignmentReferenceUrl: env.PANOCAM_ALIGNMENT_REFERENCE_URL?.trim() || undefined,
+  });
   const imageMs = Date.now() - startedAt;
   if (options.rawOnly) {
     const referenceUrls = options.referenceOnly ? classifierReferenceUrls(env) : [];
     const referenceSheet = options.referenceOnly
-      ? await buildReferenceSheet(image, referenceUrls, { fetcher: classifierReferenceFetcher(env) })
+      ? await buildReferenceSheet(image, referenceUrls, { fetcher: assetAwareFetcher(env) })
       : undefined;
     const diagnosticImage = referenceSheet ?? image;
     tick.log("image-ready", {
@@ -196,6 +199,7 @@ export async function runTick(env: Env, options: TickOptions = {}): Promise<Tick
       imageBytes: diagnosticImage.bytes.byteLength,
       referenceRequested: referenceUrls.length,
       imageMs,
+      alignment: image.alignment,
     });
     return { status: "success", tickId, frame, image: diagnosticImage, state };
   }
@@ -204,7 +208,7 @@ export async function runTick(env: Env, options: TickOptions = {}): Promise<Tick
   const referenceLabels = classifierReferenceLabels(referenceUrls);
   const referenceStartedAt = Date.now();
   const referenceImages = await loadReferenceImages(referenceUrls, {
-    fetcher: classifierReferenceFetcher(env),
+    fetcher: assetAwareFetcher(env),
   });
   const referenceMs = Date.now() - referenceStartedAt;
   const classifyStartedAt = Date.now();
@@ -281,6 +285,7 @@ export async function runTick(env: Env, options: TickOptions = {}): Promise<Tick
     referenceImagesLoaded: referenceImages.length,
     referenceImagesBytes: referenceImages.reduce((total, reference) => total + reference.bytes.byteLength, 0),
     classifyMs,
+    alignment: image.alignment,
     ...(posted ? { postUri: posted.uri } : {}),
   });
   return { status: "success", tickId, frame, image, classification, classificationDebug, decision, posted, state: nextState };

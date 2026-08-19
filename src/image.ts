@@ -8,9 +8,12 @@ import {
 } from "@cf-wasm/photon/workerd";
 import type { Frame, ImageArtifact, ImageMode } from "./types";
 import {
+ PANOCAM_ALIGNMENT_REFERENCE_URL,
  PANOCAM_CAMERA_URL,
- PANOCAM_RAINIER_VIEW_POSITION,
- PANOCAM_PANORAMA_WIDTH,
+ PANOCAM_RAINIER_CROP_HEIGHT,
+ PANOCAM_RAINIER_CROP_LEFT,
+ PANOCAM_RAINIER_CROP_TOP,
+ PANOCAM_RAINIER_CROP_WIDTH,
  PANOCAM_OUTPUT_HEIGHT,
  PANOCAM_OUTPUT_WIDTH,
  PANOCAM_RAW_SLICE_INDEX,
@@ -18,15 +21,25 @@ import {
  PANOCAM_SLICE_WIDTH,
  PANOCAM_SLICE_INDICES,
  sliceAssetUrl,
+ thumbnailAssetUrl,
 } from "./frames";
+import {
+ PANOCAM_ALIGNMENT_FEATURE_HEIGHT,
+ PANOCAM_ALIGNMENT_FEATURE_WIDTH,
+ buildPanoramaSignature,
+ circularShiftRgba,
+ copyRgbaSliceIntoPanorama,
+ findPanoramaAlignment,
+ type PanoramaAlignment,
+ type PanoramaSignature,
+} from "./panorama-alignment";
 
 /** Output and source geometry are deliberately fixed for predictable bot posts. */
 export const PANOCAM_JPEG_QUALITY = 90;
 export const PANOCAM_CREDIT_STRIP_HEIGHT = 24;
-export const PANOCAM_STITCHED_WIDTH = PANOCAM_PANORAMA_WIDTH;
 export const DEFAULT_IMAGE_REQUEST_TIMEOUT_MS = 10_000;
-export const POSTCARD_CROP_TOP = 220;
-export const POSTCARD_CROP_HEIGHT = 336;
+export const POSTCARD_CROP_TOP = PANOCAM_RAINIER_CROP_TOP;
+export const POSTCARD_CROP_HEIGHT = PANOCAM_RAINIER_CROP_HEIGHT;
 
 export interface BuildImageOptions {
  /** Injectable image fetch implementation for tests and development routes. */
@@ -35,6 +48,8 @@ export interface BuildImageOptions {
  fetcher?: typeof fetch;
  /** Maximum milliseconds spent downloading one slice. */
  timeoutMs?: number;
+ /** Optional thumbnail used as the canonical panorama alignment reference. */
+ alignmentReferenceUrl?: string | null;
  /** Maximum reference tiles in a classifier contact sheet. */
  maxReferences?: number;
 }
@@ -49,22 +64,40 @@ function responseSucceeded(response: Response): boolean {
  return response.ok || (response.status >= 200 && response.status < 400);
 }
 
+async function fetchAssetBytes(
+ fetchImpl: typeof fetch,
+ url: string,
+ timeoutMs: number,
+ label: string,
+): Promise<Uint8Array> {
+ const response = await fetchImpl(url, {
+  method: "GET",
+  signal: AbortSignal.timeout(timeoutMs),
+ });
+ if (!responseSucceeded(response)) {
+  throw new Error(`PanoCam ${label} returned HTTP ${response.status}`);
+ }
+ const bytes = new Uint8Array(await response.arrayBuffer());
+ if (bytes.byteLength === 0) throw new Error(`PanoCam ${label} was empty`);
+ return bytes;
+}
+
+async function fetchSliceBytes(
+ fetchImpl: typeof fetch,
+ frame: Frame,
+ index: number,
+ timeoutMs: number,
+): Promise<Uint8Array> {
+ return fetchAssetBytes(fetchImpl, sliceAssetUrl(frame, index), timeoutMs, `slice ${index}`);
+}
+
 async function fetchSlice(
  fetchImpl: typeof fetch,
  frame: Frame,
  index: number,
  timeoutMs: number,
 ): Promise<PhotonImage> {
- const response = await fetchImpl(sliceAssetUrl(frame, index), {
-  method: "GET",
-  signal: AbortSignal.timeout(timeoutMs),
- });
- if (!responseSucceeded(response)) {
-  throw new Error(`PanoCam slice ${index} returned HTTP ${response.status}`);
- }
- const bytes = new Uint8Array(await response.arrayBuffer());
- if (bytes.byteLength === 0) throw new Error(`PanoCam slice ${index} was empty`);
- return PhotonImage.new_from_byteslice(bytes);
+ return PhotonImage.new_from_byteslice(await fetchSliceBytes(fetchImpl, frame, index, timeoutMs));
 }
 
 function normalizeSlice(source: PhotonImage): DecodedSlice {
@@ -81,6 +114,7 @@ function normalizeSlice(source: PhotonImage): DecodedSlice {
   height: PANOCAM_SLICE_HEIGHT,
  };
 }
+
 function normalizePanoramaSlice(source: PhotonImage): DecodedSlice {
  const width = source.get_width();
  const height = source.get_height();
@@ -101,30 +135,124 @@ function normalizePanoramaSlice(source: PhotonImage): DecodedSlice {
  };
 }
 
-function copySliceIntoPanorama(target: Uint8Array, slice: PhotonImage, targetX: number): void {
- const source = slice.get_raw_pixels();
- const sourceWidth = slice.get_width();
- const sourceHeight = slice.get_height();
- const targetWidth = PANOCAM_STITCHED_WIDTH;
- for (let y = 0; y < sourceHeight; y += 1) {
-  const sourceStart = y * sourceWidth * 4;
-  const targetStart = (y * targetWidth + targetX) * 4;
-  target.set(source.subarray(sourceStart, sourceStart + sourceWidth * 4), targetStart);
- }
-}
 
 async function composeStitched(
  fetchImpl: typeof fetch,
  frame: Frame,
  timeoutMs: number,
 ): Promise<PhotonImage> {
- const pixels = new Uint8Array(PANOCAM_STITCHED_WIDTH * PANOCAM_SLICE_HEIGHT * 4);
- for (const index of PANOCAM_SLICE_INDICES) {
-  const source = normalizePanoramaSlice(await fetchSlice(fetchImpl, frame, index, timeoutMs));
-  copySliceIntoPanorama(pixels, source.image, index * PANOCAM_SLICE_WIDTH);
+ const encodedSlices = await Promise.all(
+  PANOCAM_SLICE_INDICES.map((index) => fetchSliceBytes(fetchImpl, frame, index, timeoutMs)),
+ );
+ const widths: number[] = [];
+ let panoramaWidth = 0;
+ for (const bytes of encodedSlices) {
+  const source = normalizePanoramaSlice(PhotonImage.new_from_byteslice(bytes));
+  widths.push(source.width);
+  panoramaWidth += source.width;
   source.image.free();
  }
- return new PhotonImage(pixels, PANOCAM_STITCHED_WIDTH, PANOCAM_SLICE_HEIGHT);
+
+ const pixels = new Uint8Array(panoramaWidth * PANOCAM_SLICE_HEIGHT * 4);
+ let targetX = 0;
+ for (const [index, bytes] of encodedSlices.entries()) {
+  const source = normalizePanoramaSlice(PhotonImage.new_from_byteslice(bytes));
+  if (source.width !== widths[index]) {
+   source.image.free();
+   throw new Error(`PanoCam slice ${index} changed dimensions between decode passes`);
+  }
+  copyRgbaSliceIntoPanorama(
+   pixels,
+   panoramaWidth,
+   {
+    pixels: source.image.get_raw_pixels(),
+    width: source.width,
+    height: source.height,
+   },
+   targetX,
+  );
+  targetX += source.width;
+  source.image.free();
+ }
+ return new PhotonImage(pixels, panoramaWidth, PANOCAM_SLICE_HEIGHT);
+}
+async function fetchAlignmentImage(
+ fetchImpl: typeof fetch,
+ url: string,
+ timeoutMs: number,
+ label: string,
+): Promise<PhotonImage> {
+ return PhotonImage.new_from_byteslice(await fetchAssetBytes(fetchImpl, url, timeoutMs, label));
+}
+
+function signatureForAlignment(source: PhotonImage): PanoramaSignature {
+ const featureImage = resize(
+  source,
+  PANOCAM_ALIGNMENT_FEATURE_WIDTH,
+  PANOCAM_ALIGNMENT_FEATURE_HEIGHT,
+  SamplingFilter.Triangle,
+ );
+ try {
+  return buildPanoramaSignature({
+   pixels: featureImage.get_raw_pixels(),
+   width: featureImage.get_width(),
+   height: featureImage.get_height(),
+  });
+ } finally {
+  featureImage.free();
+ }
+}
+
+async function alignStitchedPanorama(
+ source: PhotonImage,
+ fetchImpl: typeof fetch,
+ frame: Frame,
+ referenceUrl: string,
+ timeoutMs: number,
+): Promise<{ image: PhotonImage; alignment: PanoramaAlignment }> {
+ const settled = await Promise.allSettled([
+  fetchAlignmentImage(fetchImpl, referenceUrl, timeoutMs, "alignment reference"),
+  fetchAlignmentImage(fetchImpl, thumbnailAssetUrl(frame), timeoutMs, "alignment thumbnail"),
+ ]);
+ const reference = settled[0].status === "fulfilled" ? settled[0].value : undefined;
+ const current = settled[1].status === "fulfilled" ? settled[1].value : undefined;
+ if (!reference || !current) {
+  reference?.free();
+  current?.free();
+  const failure = settled.find((result): result is PromiseRejectedResult => result.status === "rejected");
+  throw failure?.reason instanceof Error ? failure.reason : new Error("PanoCam alignment asset fetch failed");
+ }
+ try {
+  const alignment = findPanoramaAlignment(
+   signatureForAlignment(reference),
+   signatureForAlignment(current),
+  );
+  if (!alignment.accepted) {
+   throw new Error(
+    `PanoCam panorama alignment rejected: score=${alignment.score.toFixed(3)} ` +
+    `margin=${alignment.margin.toFixed(3)} bandDisagreement=${alignment.bandDisagreementPx.toFixed(1)} ` +
+    `inlierTiles=${alignment.inlierTileCount}`,
+   );
+  }
+  const appliedShiftPx = Math.round(
+   alignment.shiftFeaturePx * source.get_width() / PANOCAM_ALIGNMENT_FEATURE_WIDTH,
+  );
+  const shiftedPixels = circularShiftRgba(
+   {
+    pixels: source.get_raw_pixels(),
+    width: source.get_width(),
+    height: source.get_height(),
+   },
+   appliedShiftPx,
+  );
+  return {
+   image: new PhotonImage(shiftedPixels, source.get_width(), source.get_height()),
+   alignment: { ...alignment, appliedShiftPx },
+  };
+ } finally {
+  reference.free();
+  current.free();
+ }
 }
 function buildReferencePanel(source: PhotonImage): PhotonImage {
  const width = source.get_width();
@@ -198,21 +326,54 @@ export async function buildImage(
  if (mode === "stitched") {
   let joined: PhotonImage | undefined;
   let cropped: PhotonImage | undefined;
+  let framed: PhotonImage | undefined;
   let output: PhotonImage | undefined;
+  let alignment: PanoramaAlignment | undefined;
   try {
    joined = await composeStitched(fetchImpl, frame, timeoutMs);
-   const cropLeft = PANOCAM_RAINIER_VIEW_POSITION - PANOCAM_OUTPUT_WIDTH / 2;
-   cropped = crop(joined, cropLeft, 0, cropLeft + PANOCAM_OUTPUT_WIDTH, PANOCAM_OUTPUT_HEIGHT);
-   output = addCredit(cropped, frame);
+   const referenceUrl = options.alignmentReferenceUrl === undefined
+    ? PANOCAM_ALIGNMENT_REFERENCE_URL
+    : options.alignmentReferenceUrl;
+   if (referenceUrl) {
+    const realigned = await alignStitchedPanorama(joined, fetchImpl, frame, referenceUrl, timeoutMs);
+    joined.free();
+    joined = realigned.image;
+    alignment = realigned.alignment;
+   }
+   const cropLeft = Math.max(
+    0,
+    Math.min(
+     joined.get_width() - PANOCAM_RAINIER_CROP_WIDTH,
+     PANOCAM_RAINIER_CROP_LEFT,
+    ),
+   );
+   const cropTop = Math.max(
+    0,
+    Math.min(
+     joined.get_height() - PANOCAM_RAINIER_CROP_HEIGHT,
+     PANOCAM_RAINIER_CROP_TOP,
+    ),
+   );
+   cropped = crop(
+    joined,
+    cropLeft,
+    cropTop,
+    cropLeft + PANOCAM_RAINIER_CROP_WIDTH,
+    cropTop + PANOCAM_RAINIER_CROP_HEIGHT,
+   );
+   framed = resize(cropped, PANOCAM_OUTPUT_WIDTH, PANOCAM_OUTPUT_HEIGHT, SamplingFilter.Triangle);
+   output = addCredit(framed, frame);
    const bytes = output.get_bytes_jpeg(PANOCAM_JPEG_QUALITY);
    return {
     bytes: new Uint8Array(bytes),
     contentType: "image/jpeg",
     width: PANOCAM_OUTPUT_WIDTH,
     height: PANOCAM_OUTPUT_HEIGHT,
+    alignment,
    };
   } finally {
    output?.free();
+   framed?.free();
    cropped?.free();
    joined?.free();
   }
