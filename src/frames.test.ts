@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { discoverLatestFrame, frameFromId, parseFrameId } from "./frames";
+import { discoverLatestFrame, frameFromId, parseFrameId, thumbnailAssetUrl } from "./frames";
 
 const response = (status: number) => new Response(null, { status });
 
@@ -14,6 +14,7 @@ describe("PanoCam frame discovery", () => {
       second: 0,
     });
     expect(frameFromId("2025_0704_090000").capturedAt.toISOString()).toBe("2025-07-04T16:00:00.000Z");
+    expect(thumbnailAssetUrl(frameFromId("2026_0511_120000"))).toContain("/thumbnail.jpg");
     expect(parseFrameId("2025_0230_130000")).toBeNull();
   });
 

@@ -73,10 +73,13 @@ Keep `POSTING_ENABLED=false` while observing the first deployment. Set it to `tr
 
 ## Image modes
 
-`IMAGE_MODE=stitched` is the production mode. It loads the complete 17-slice PanoCam panorama and renders the Rainier-facing production view at 1440×1080. `postcard` remains available as a diagnostic crop of slice 9; `raw-slice` fetches that full 512×1080 diagnostic slice. `raw-slice-unwatermarked` is an emergency diagnostic mode only and violates the normal attribution requirement; do not use it for public posts.
+`IMAGE_MODE=stitched` is the production mode. It loads all 17 numbered PanoCam slices, preserves their source widths, aligns the resulting panorama against the configured structural reference thumbnail, extracts the canonical 512×384 Rainier window, and resizes it to 1440×1080. `postcard` uses the same 512×384 source window at native size; `raw-slice` fetches the full diagnostic slice 9. `raw-slice-unwatermarked` is an emergency diagnostic mode only and violates the normal attribution requirement; do not use it for public posts.
 
-The stitched target and bundled classifier references use the same panorama assembly, crop, dimensions, and attribution bar. No fixed four-slice window is used; the full source panorama is assembled before cropping.
-Measure actual Worker CPU time after deployment. If the stitched path is unsuitable, switch to `postcard`, `raw-slice`, or upgrade the Worker to the Paid plan.
+The alignment uses circular horizontal structural registration rather than the viewer compass. It records the measured shift, score, confidence margin, vertical-band agreement, and inlier-tile count in Worker telemetry. A frame that fails the alignment confidence gate fails the stitched render instead of silently posting the old fixed crop.
+
+`PANOCAM_ALIGNMENT_REFERENCE_URL` selects the canonical full-panorama thumbnail. The default is the checked-in `/panocam-alignment-reference.jpg`, copied from the clear March 25, 2025 Rainier-visible frame. Recalibrate it when the camera layout changes.
+
+The three-year sample report can be regenerated with `npm exec tsx scripts/panorama_alignment_report.ts`. It writes per-frame shifts, confidence diagnostics, and adjusted 1440×1080 crops under `reports/panorama-alignment-2026-08-18/`.
 
 ## Classifier evaluation
 
