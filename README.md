@@ -59,6 +59,18 @@ curl -H "Authorization: Bearer $DEV_TOKEN" "http://localhost:8787/check?raw=1"
 - `GET /check?raw=1&refs=1` — returns the classifier contact sheet with target and reference tiles
 - `GET /check?post=1` — explicitly permits a real post when `POSTING_ENABLED=true`
 - `GET /draft?at=...` — derives the nearest available frame at that timestamp, runs without posting, and returns an HTML draft with the image, proposed text, decision, and alt text
+- `POST /post?at=...` — force-posts the model-evaluated frame immediately, bypassing transition/heartbeat gating; requires the dev token and `POSTING_ENABLED=true`
+
+Use `/post` only for an intentional one-off post. It accepts an optional `frame` query parameter when a specific known frame must be posted:
+
+```sh
+set -a
+. .env.local
+set +a
+curl -X POST \
+  -H "Authorization: Bearer $DEV_TOKEN" \
+  "http://localhost:8787/post?at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+```
 
 Example:
 

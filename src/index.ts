@@ -28,6 +28,7 @@ interface TickOptions {
   rawOnly?: boolean;
   referenceOnly?: boolean;
   bypassDaylight?: boolean;
+  forcePost?: boolean;
 }
 
 interface TickResult {
@@ -152,6 +153,21 @@ function postingEnabled(env: Env): boolean {
   return env.POSTING_ENABLED?.trim().toLowerCase() === "true";
 }
 
+function forcedPostState(state: BotState, classification: Classification, now: Date): BotState {
+  const nextState = cloneState(state);
+  nextState.lastVerdict = classification.verdict;
+  nextState.pendingCount = 0;
+  nextState.lastPostedVerdict = classification.verdict;
+  nextState.lastPostAt = now.toISOString();
+  if (classification.verdict === "visible") {
+    delete nextState.notVisibleSince;
+    delete nextState.heartbeatWindow;
+  } else {
+    nextState.notVisibleSince ??= now.toISOString();
+    delete nextState.heartbeatWindow;
+  }
+  return nextState;
+}
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -225,10 +241,15 @@ export async function runTick(env: Env, options: TickOptions = {}): Promise<Tick
   let nextState: BotState = observedState;
   let posted: TickResult["posted"];
   const canPost = options.allowPost ?? postingEnabled(env);
-  const shouldPost = decision.kind === "transition" || decision.kind === "heartbeat";
+  const forcePost = options.forcePost === true;
+  const shouldPost = forcePost || decision.kind === "transition" || decision.kind === "heartbeat";
+  const postText = forcePost ? (classification.visible ? "Yes! 🏔️" : "No.") : decision.text;
+  const postState = forcePost
+    ? forcedPostState(decision.state, classification, now)
+    : decision.stateAfterPost;
 
   if (shouldPost && canPost) {
-    if (!decision.stateAfterPost || !decision.text) {
+    if (!postState || !postText) {
       throw new Error(`Decision ${decision.kind} did not include post state/text`);
     }
     try {
@@ -241,17 +262,17 @@ export async function runTick(env: Env, options: TickOptions = {}): Promise<Tick
         {
           image,
           altText: classification.altText,
-          text: decision.text,
+          text: postText,
           createdAt: now,
         },
       );
       posted = result;
-      nextState = { ...cloneState(decision.stateAfterPost), lastFrame: frame.id };
+      nextState = { ...cloneState(postState), lastFrame: frame.id };
       tick.log("post-created", {
         event: "post_created",
         frame: frame.id,
         verdict: classification.verdict,
-        decision: decision.kind,
+        decision: forcePost ? "forced" : decision.kind,
         postUri: result.uri,
       });
     } catch (error) {
@@ -261,7 +282,7 @@ export async function runTick(env: Env, options: TickOptions = {}): Promise<Tick
       tick.error("post-failed", {
         event: "post_failed",
         frame: frame.id,
-        decision: decision.kind,
+        decision: forcePost ? "forced" : decision.kind,
         error: errorMessage(error),
       });
       if (options.persist !== false) await writeState(env, nextState);
@@ -511,6 +532,54 @@ async function draftResponse(env: Env, atValue: string | null, devToken: string)
     return htmlResponse(`<h1>Draft pipeline failed</h1><pre>${htmlEscape(errorMessage(error))}</pre>`, 502);
   }
 }
+async function forcePostResponse(env: Env, request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  let formAt: string | null = null;
+  let formFrame: string | null = null;
+  const contentType = request.headers.get("Content-Type") ?? "";
+  if (contentType.includes("application/x-www-form-urlencoded") || contentType.includes("multipart/form-data")) {
+    const form = await request.formData();
+    formAt = typeof form.get("at") === "string" ? form.get("at") as string : null;
+    formFrame = typeof form.get("frame") === "string" ? form.get("frame") as string : null;
+  }
+  const atValue = formAt ?? url.searchParams.get("at");
+  const frameId = formFrame ?? url.searchParams.get("frame") ?? undefined;
+  if (!atValue) return jsonResponse({ error: "missing_at" }, 400);
+  const requestedAt = new Date(atValue);
+  if (!Number.isFinite(requestedAt.getTime())) return jsonResponse({ error: "invalid_at" }, 400);
+  if (!postingEnabled(env)) return jsonResponse({ error: "posting_disabled" }, 503);
+  try {
+    const result = await runTick(env, {
+      now: requestedAt,
+      frameId,
+      ignoreLastFrame: true,
+      persist: true,
+      allowPost: true,
+      forcePost: true,
+      bypassDaylight: true,
+    });
+    if (!result.posted) {
+      return jsonResponse({
+        error: "force_post_not_created",
+        status: result.status,
+        frame: result.frame?.id,
+        classification: result.classification,
+        decision: result.decision,
+      }, 502);
+    }
+    return jsonResponse({
+      status: "posted",
+      frame: result.frame?.id,
+      capturedAt: result.frame?.timestamp,
+      classification: result.classification,
+      decision: result.decision,
+      posted: result.posted,
+      alignment: result.image?.alignment,
+    }, 201);
+  } catch (error) {
+    return jsonResponse({ error: errorMessage(error) }, 502);
+  }
+}
 
 export default {
   async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
@@ -534,6 +603,12 @@ export default {
         return draftResponse(env, typeof atValue === "string" ? atValue : null, token);
       }
       return htmlResponse("<h1>Method not allowed</h1>", 405);
+    }
+
+    if (url.pathname === "/post") {
+      if (request.method !== "POST") return jsonResponse({ error: "method_not_allowed" }, 405);
+      if (!authorized(request, env)) return jsonResponse({ error: "unauthorized" }, 401);
+      return forcePostResponse(env, request);
     }
 
     if (!authorized(request, env)) return jsonResponse({ error: "unauthorized" }, 401);
