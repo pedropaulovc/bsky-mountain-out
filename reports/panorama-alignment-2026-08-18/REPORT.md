@@ -1,17 +1,17 @@
 # Panocam panorama alignment report
 
-Generated: `2026-08-19T00:53:28.547Z`
-Sample manifest: `reports/panorama-clusters-2026-08-18-final/sample.json`
+Generated: `2026-08-19T01:26:57.202Z`
+Sample manifest: `reports/panorama-alignment-2026-08-18/sample-input.json`
 Reference: `assets/panocam-alignment-reference.jpg`
 Reference source frame: `2025_0325_130000` (clear, Rainier visible).
 
 ## Summary
 
-- Sampled timestamps: **100** (the existing evenly spaced three-year manifest).
-- Accepted alignments: **72**
-- Rejected alignments: **28**
+- Sampled timestamps: **100** (evenly spaced among available daily candidates from 2023-08-18 through 2026-08-18).
+- Accepted alignments: **95**
+- Rejected alignments: **5**
 - Processing errors: **0**
-- Applied source shift range: **-660..837 px**; median **692 px**.
+- Applied source shift range: **-3334..870 px**; median **692 px**.
 - Source panoramas preserve the decoded terminal slice width; the report crops the old 8704px cache to the true source width before applying the shift.
 
 ## Method
@@ -31,103 +31,103 @@ The overview is generated after alignment. Individual final crops are in [`adjus
 
 | Frame | Status | Applied shift (px) | Score | Confidence | Inlier tiles | Crop |
 |---|---:|---:|---:|---:|---:|---|
-| `2023_0818_000000` | accepted | 677 | 0.484 | 0.672 | 8 | [crop](adjusted-crops/2023_0818_000000.jpg) |
-| `2023_0826_202000` | accepted | 677 | 0.559 | 0.714 | 8 | [crop](adjusted-crops/2023_0826_202000.jpg) |
-| `2023_0913_124000` | accepted | 677 | 0.696 | 0.829 | 8 | [crop](adjusted-crops/2023_0913_124000.jpg) |
-| `2023_0922_085000` | accepted | 677 | 0.600 | 0.750 | 7 | [crop](adjusted-crops/2023_0922_085000.jpg) |
-| `2023_1001_050000` | accepted | 677 | 0.481 | 0.652 | 8 | [crop](adjusted-crops/2023_1001_050000.jpg) |
-| `2023_1010_012000` | accepted | 677 | 0.484 | 0.710 | 8 | [crop](adjusted-crops/2023_1010_012000.jpg) |
-| `2023_1027_174000` | accepted | 709 | 0.340 | 0.485 | 6 | [crop](adjusted-crops/2023_1027_174000.jpg) |
-| `2023_1105_135000` | accepted | 676 | 0.612 | 0.782 | 8 | [crop](adjusted-crops/2023_1105_135000.jpg) |
-| `2023_1114_100000` | accepted | 676 | 0.593 | 0.771 | 8 | [crop](adjusted-crops/2023_1114_100000.jpg) |
-| `2023_1123_062000` | accepted | 676 | 0.496 | 0.717 | 8 | [crop](adjusted-crops/2023_1123_062000.jpg) |
-| `2023_1210_224000` | rejected |  | 0.378 | 0.000 | 5 |  |
-| `2023_1219_184000` | rejected |  | 0.428 | 0.000 | 6 |  |
-| `2023_1228_150000` | accepted | 805 | 0.455 | 0.693 | 8 | [crop](adjusted-crops/2023_1228_150000.jpg) |
-| `2025_0101_000000` | rejected |  | 0.416 | 0.000 | 6 |  |
-| `2025_0101_002000` | rejected |  | 0.409 | 0.000 | 6 |  |
-| `2025_0101_004000` | rejected |  | 0.421 | 0.000 | 6 |  |
-| `2025_0101_010000` | accepted | 741 | 0.480 | 0.607 | 7 | [crop](adjusted-crops/2025_0101_010000.jpg) |
-| `2025_0101_012000` | accepted | 741 | 0.456 | 0.638 | 8 | [crop](adjusted-crops/2025_0101_012000.jpg) |
-| `2025_0101_014000` | accepted | 709 | 0.468 | 0.645 | 8 | [crop](adjusted-crops/2025_0101_014000.jpg) |
-| `2025_0101_020000` | accepted | 676 | 0.513 | 0.726 | 8 | [crop](adjusted-crops/2025_0101_020000.jpg) |
-| `2025_0101_022000` | accepted | 805 | 0.495 | 0.716 | 8 | [crop](adjusted-crops/2025_0101_022000.jpg) |
-| `2025_0101_024000` | accepted | 741 | 0.470 | 0.558 | 6 | [crop](adjusted-crops/2025_0101_024000.jpg) |
-| `2025_0101_030000` | rejected |  | 0.452 | 0.000 | 5 |  |
-| `2025_0101_032000` | accepted | 693 | 0.482 | 0.690 | 8 | [crop](adjusted-crops/2025_0101_032000.jpg) |
-| `2025_0101_034000` | rejected |  | 0.464 | 0.000 | 7 |  |
-| `2025_0101_040000` | rejected |  | 0.432 | 0.000 | 7 |  |
-| `2025_0101_042000` | accepted | 821 | 0.464 | 0.673 | 7 | [crop](adjusted-crops/2025_0101_042000.jpg) |
-| `2025_0101_044000` | accepted | 821 | 0.488 | 0.687 | 7 | [crop](adjusted-crops/2025_0101_044000.jpg) |
-| `2025_0101_050000` | accepted | 805 | 0.454 | 0.637 | 8 | [crop](adjusted-crops/2025_0101_050000.jpg) |
-| `2025_0101_052000` | rejected |  | 0.456 | 0.000 | 8 |  |
-| `2025_0101_054000` | accepted | 709 | 0.482 | 0.709 | 8 | [crop](adjusted-crops/2025_0101_054000.jpg) |
-| `2025_0101_060000` | accepted | 709 | 0.479 | 0.682 | 7 | [crop](adjusted-crops/2025_0101_060000.jpg) |
-| `2025_0101_062000` | accepted | 837 | 0.501 | 0.700 | 8 | [crop](adjusted-crops/2025_0101_062000.jpg) |
-| `2025_0101_064000` | accepted | 821 | 0.502 | 0.720 | 8 | [crop](adjusted-crops/2025_0101_064000.jpg) |
-| `2025_0101_070000` | accepted | 821 | 0.487 | 0.712 | 8 | [crop](adjusted-crops/2025_0101_070000.jpg) |
-| `2025_0101_072000` | rejected |  | 0.458 | 0.000 | 6 |  |
-| `2025_0101_074000` | accepted | 725 | 0.571 | 0.734 | 7 | [crop](adjusted-crops/2025_0101_074000.jpg) |
-| `2025_0101_080000` | accepted | 821 | 0.468 | 0.676 | 7 | [crop](adjusted-crops/2025_0101_080000.jpg) |
-| `2025_0101_081000` | accepted | 837 | 0.472 | 0.678 | 7 | [crop](adjusted-crops/2025_0101_081000.jpg) |
-| `2025_0101_082000` | rejected |  | 0.407 | 0.000 | 6 |  |
-| `2025_0101_083000` | rejected |  | 0.428 | 0.000 | 6 |  |
-| `2025_0101_084000` | rejected |  | 0.445 | 0.000 | 7 |  |
-| `2025_0101_085000` | accepted | 837 | 0.528 | 0.709 | 7 | [crop](adjusted-crops/2025_0101_085000.jpg) |
-| `2025_0101_090000` | accepted | 837 | 0.533 | 0.694 | 7 | [crop](adjusted-crops/2025_0101_090000.jpg) |
-| `2025_0101_091000` | accepted | 837 | 0.580 | 0.739 | 7 | [crop](adjusted-crops/2025_0101_091000.jpg) |
-| `2025_0101_092000` | accepted | 805 | 0.576 | 0.736 | 7 | [crop](adjusted-crops/2025_0101_092000.jpg) |
-| `2025_0111_194000` | accepted | 741 | 0.488 | 0.712 | 8 | [crop](adjusted-crops/2025_0111_194000.jpg) |
-| `2025_0129_121000` | accepted | 676 | 0.662 | 0.810 | 8 | [crop](adjusted-crops/2025_0129_121000.jpg) |
-| `2025_0207_082000` | accepted | 741 | 0.463 | 0.648 | 6 | [crop](adjusted-crops/2025_0207_082000.jpg) |
-| `2025_0216_042000` | accepted | 660 | 0.507 | 0.723 | 8 | [crop](adjusted-crops/2025_0216_042000.jpg) |
-| `2025_0225_004000` | rejected |  | 0.419 | 0.000 | 7 |  |
-| `2025_0305_210000` | rejected |  | 0.364 | 0.000 | 7 |  |
-| `2025_0314_170000` | rejected |  | 0.362 | 0.000 | 7 |  |
-| `2025_0323_132000` | accepted | -660 | 0.557 | 0.707 | 7 | [crop](adjusted-crops/2025_0323_132000.jpg) |
-| `2025_0410_054000` | accepted | 660 | 0.493 | 0.715 | 8 | [crop](adjusted-crops/2025_0410_054000.jpg) |
-| `2025_0419_020000` | accepted | -451 | 0.447 | 0.645 | 7 | [crop](adjusted-crops/2025_0419_020000.jpg) |
-| `2025_0428_134000` | accepted | 660 | 0.702 | 0.832 | 8 | [crop](adjusted-crops/2025_0428_134000.jpg) |
-| `2025_0506_182000` | rejected |  | 0.382 | 0.000 | 6 |  |
-| `2025_0524_104000` | accepted | -32 | 0.678 | 0.819 | 8 | [crop](adjusted-crops/2025_0524_104000.jpg) |
-| `2025_0602_070000` | accepted | 660 | 0.626 | 0.789 | 8 | [crop](adjusted-crops/2025_0602_070000.jpg) |
-| `2025_0611_030000` | rejected |  | 0.263 | 0.000 | 6 |  |
-| `2025_0619_232000` | accepted | 660 | 0.500 | 0.718 | 8 | [crop](adjusted-crops/2025_0619_232000.jpg) |
-| `2025_0628_193000` | rejected |  | 0.377 | 0.000 | 6 |  |
-| `2025_0725_081000` | accepted | 644 | 0.602 | 0.738 | 8 | [crop](adjusted-crops/2025_0725_081000.jpg) |
-| `2025_0803_042000` | accepted | 403 | 0.491 | 0.695 | 8 | [crop](adjusted-crops/2025_0803_042000.jpg) |
-| `2025_0812_004000` | rejected |  | 0.384 | 0.000 | 6 |  |
-| `2025_0820_204000` | rejected |  | 0.439 | 0.000 | 6 |  |
-| `2025_0829_170000` | accepted | 692 | 0.544 | 0.725 | 8 | [crop](adjusted-crops/2025_0829_170000.jpg) |
-| `2025_0916_092000` | accepted | 708 | 0.527 | 0.709 | 7 | [crop](adjusted-crops/2025_0916_092000.jpg) |
-| `2025_0925_054000` | accepted | 692 | 0.486 | 0.667 | 7 | [crop](adjusted-crops/2025_0925_054000.jpg) |
-| `2025_1004_014000` | accepted | 692 | 0.508 | 0.705 | 8 | [crop](adjusted-crops/2025_1004_014000.jpg) |
-| `2025_1012_220000` | accepted | 692 | 0.486 | 0.636 | 8 | [crop](adjusted-crops/2025_1012_220000.jpg) |
-| `2025_1030_142000` | accepted | 708 | 0.655 | 0.787 | 8 | [crop](adjusted-crops/2025_1030_142000.jpg) |
-| `2025_1108_103000` | accepted | 692 | 0.646 | 0.801 | 8 | [crop](adjusted-crops/2025_1108_103000.jpg) |
-| `2025_1117_064000` | rejected |  | 0.409 | 0.000 | 7 |  |
-| `2025_1126_030000` | rejected |  | 0.164 | 0.000 | 6 |  |
-| `2025_1204_230000` | rejected |  | 0.139 | 0.000 | 7 |  |
-| `2025_1213_192000` | accepted | 692 | 0.508 | 0.723 | 8 | [crop](adjusted-crops/2025_1213_192000.jpg) |
-| `2025_1231_115000` | accepted | 692 | 0.617 | 0.747 | 8 | [crop](adjusted-crops/2025_1231_115000.jpg) |
-| `2026_0109_080000` | accepted | 692 | 0.576 | 0.737 | 7 | [crop](adjusted-crops/2026_0109_080000.jpg) |
-| `2026_0118_040000` | accepted | 692 | 0.506 | 0.722 | 8 | [crop](adjusted-crops/2026_0118_040000.jpg) |
-| `2026_0127_002000` | accepted | 692 | 0.488 | 0.712 | 8 | [crop](adjusted-crops/2026_0127_002000.jpg) |
-| `2026_0213_165000` | accepted | 692 | 0.651 | 0.804 | 8 | [crop](adjusted-crops/2026_0213_165000.jpg) |
-| `2026_0303_091000` | accepted | 692 | 0.674 | 0.816 | 8 | [crop](adjusted-crops/2026_0303_091000.jpg) |
-| `2026_0312_052000` | accepted | 692 | 0.527 | 0.734 | 8 | [crop](adjusted-crops/2026_0312_052000.jpg) |
-| `2026_0321_014000` | accepted | 692 | 0.524 | 0.732 | 8 | [crop](adjusted-crops/2026_0321_014000.jpg) |
-| `2026_0329_214000` | accepted | 692 | 0.480 | 0.707 | 8 | [crop](adjusted-crops/2026_0329_214000.jpg) |
-| `2026_0416_141000` | accepted | 692 | 0.732 | 0.849 | 8 | [crop](adjusted-crops/2026_0416_141000.jpg) |
-| `2026_0425_102000` | accepted | 692 | 0.694 | 0.828 | 8 | [crop](adjusted-crops/2026_0425_102000.jpg) |
-| `2026_0504_063000` | accepted | 692 | 0.456 | 0.669 | 7 | [crop](adjusted-crops/2026_0504_063000.jpg) |
-| `2026_0513_024000` | accepted | 692 | 0.483 | 0.709 | 8 | [crop](adjusted-crops/2026_0513_024000.jpg) |
-| `2026_0521_230000` | rejected |  | 0.430 | 0.000 | 6 |  |
-| `2026_0530_192000` | rejected |  | 0.391 | 0.000 | 6 |  |
-| `2026_0608_152000` | accepted | 692 | 0.670 | 0.814 | 8 | [crop](adjusted-crops/2026_0608_152000.jpg) |
-| `2026_0626_075000` | accepted | 692 | 0.655 | 0.806 | 8 | [crop](adjusted-crops/2026_0626_075000.jpg) |
-| `2026_0707_112000` | accepted | 692 | 0.721 | 0.843 | 8 | [crop](adjusted-crops/2026_0707_112000.jpg) |
-| `2026_0714_002000` | rejected |  | 0.477 | 0.000 | 8 |  |
-| `2026_0722_202000` | accepted | 692 | 0.517 | 0.728 | 8 | [crop](adjusted-crops/2026_0722_202000.jpg) |
-| `2026_0809_125000` | accepted | 692 | 0.759 | 0.865 | 8 | [crop](adjusted-crops/2026_0809_125000.jpg) |
-| `2026_0818_090000` | rejected |  | 0.304 | 0.000 | 8 |  |
+| `2023_0818_120000` | accepted | 677 | 0.687 | 0.824 | 8 | [crop](adjusted-crops/2023_0818_120000.jpg) |
+| `2023_0828_120000` | accepted | 677 | 0.637 | 0.796 | 8 | [crop](adjusted-crops/2023_0828_120000.jpg) |
+| `2023_0907_120000` | accepted | 677 | 0.630 | 0.792 | 8 | [crop](adjusted-crops/2023_0907_120000.jpg) |
+| `2023_0918_120000` | accepted | 677 | 0.645 | 0.800 | 8 | [crop](adjusted-crops/2023_0918_120000.jpg) |
+| `2023_0928_120000` | accepted | 693 | 0.686 | 0.823 | 8 | [crop](adjusted-crops/2023_0928_120000.jpg) |
+| `2023_1008_120000` | accepted | 677 | 0.645 | 0.800 | 8 | [crop](adjusted-crops/2023_1008_120000.jpg) |
+| `2023_1018_120000` | accepted | 677 | 0.678 | 0.819 | 8 | [crop](adjusted-crops/2023_1018_120000.jpg) |
+| `2023_1029_120000` | accepted | 677 | 0.652 | 0.804 | 8 | [crop](adjusted-crops/2023_1029_120000.jpg) |
+| `2023_1108_120000` | accepted | 676 | 0.692 | 0.827 | 8 | [crop](adjusted-crops/2023_1108_120000.jpg) |
+| `2023_1118_120000` | accepted | 676 | 0.645 | 0.800 | 8 | [crop](adjusted-crops/2023_1118_120000.jpg) |
+| `2023_1128_120000` | accepted | 676 | 0.619 | 0.767 | 8 | [crop](adjusted-crops/2023_1128_120000.jpg) |
+| `2023_1209_120000` | accepted | 676 | 0.627 | 0.772 | 8 | [crop](adjusted-crops/2023_1209_120000.jpg) |
+| `2023_1219_120000` | accepted | 676 | 0.631 | 0.793 | 8 | [crop](adjusted-crops/2023_1219_120000.jpg) |
+| `2023_1229_120000` | accepted | 821 | 0.560 | 0.753 | 8 | [crop](adjusted-crops/2023_1229_120000.jpg) |
+| `2024_0108_120000` | accepted | 773 | 0.625 | 0.764 | 7 | [crop](adjusted-crops/2024_0108_120000.jpg) |
+| `2024_0119_120000` | accepted | 693 | 0.585 | 0.767 | 8 | [crop](adjusted-crops/2024_0119_120000.jpg) |
+| `2024_0129_120000` | accepted | 821 | 0.635 | 0.795 | 8 | [crop](adjusted-crops/2024_0129_120000.jpg) |
+| `2024_0208_120000` | accepted | 789 | 0.578 | 0.762 | 8 | [crop](adjusted-crops/2024_0208_120000.jpg) |
+| `2024_0218_120000` | accepted | 805 | 0.687 | 0.824 | 8 | [crop](adjusted-crops/2024_0218_120000.jpg) |
+| `2024_0229_120000` | accepted | 693 | 0.634 | 0.775 | 8 | [crop](adjusted-crops/2024_0229_120000.jpg) |
+| `2024_0310_000000` | accepted | 693 | 0.510 | 0.724 | 8 | [crop](adjusted-crops/2024_0310_000000.jpg) |
+| `2024_0402_120000` | accepted | 709 | 0.767 | 0.850 | 8 | [crop](adjusted-crops/2024_0402_120000.jpg) |
+| `2024_0412_120000` | accepted | 693 | 0.674 | 0.816 | 8 | [crop](adjusted-crops/2024_0412_120000.jpg) |
+| `2024_0423_120000` | accepted | 821 | 0.708 | 0.817 | 8 | [crop](adjusted-crops/2024_0423_120000.jpg) |
+| `2024_0503_120000` | accepted | 870 | 0.721 | 0.843 | 8 | [crop](adjusted-crops/2024_0503_120000.jpg) |
+| `2024_0516_060000` | accepted | 837 | 0.423 | 0.632 | 7 | [crop](adjusted-crops/2024_0516_060000.jpg) |
+| `2024_0529_120000` | accepted | 773 | 0.553 | 0.692 | 8 | [crop](adjusted-crops/2024_0529_120000.jpg) |
+| `2024_0612_120000` | accepted | 837 | 0.719 | 0.823 | 8 | [crop](adjusted-crops/2024_0612_120000.jpg) |
+| `2024_0628_120000` | accepted | 870 | 0.666 | 0.812 | 8 | [crop](adjusted-crops/2024_0628_120000.jpg) |
+| `2024_0708_120000` | accepted | 628 | 0.730 | 0.848 | 8 | [crop](adjusted-crops/2024_0708_120000.jpg) |
+| `2024_0718_120000` | accepted | 870 | 0.733 | 0.850 | 8 | [crop](adjusted-crops/2024_0718_120000.jpg) |
+| `2024_0801_120000` | accepted | 870 | 0.751 | 0.860 | 8 | [crop](adjusted-crops/2024_0801_120000.jpg) |
+| `2024_0811_120000` | accepted | 693 | 0.634 | 0.750 | 7 | [crop](adjusted-crops/2024_0811_120000.jpg) |
+| `2024_0821_120000` | accepted | -1369 | 0.526 | 0.683 | 6 | [crop](adjusted-crops/2024_0821_120000.jpg) |
+| `2024_0904_120000` | accepted | 854 | 0.753 | 0.861 | 8 | [crop](adjusted-crops/2024_0904_120000.jpg) |
+| `2024_0914_120000` | accepted | 676 | 0.645 | 0.800 | 8 | [crop](adjusted-crops/2024_0914_120000.jpg) |
+| `2024_0925_120000` | accepted | 757 | 0.671 | 0.815 | 8 | [crop](adjusted-crops/2024_0925_120000.jpg) |
+| `2024_1009_120000` | accepted | 693 | 0.696 | 0.829 | 8 | [crop](adjusted-crops/2024_1009_120000.jpg) |
+| `2024_1019_120000` | rejected |  | 0.204 | 0.000 | 6 |  |
+| `2024_1029_120000` | accepted | 854 | 0.527 | 0.715 | 8 | [crop](adjusted-crops/2024_1029_120000.jpg) |
+| `2024_1109_120000` | accepted | 837 | 0.679 | 0.819 | 8 | [crop](adjusted-crops/2024_1109_120000.jpg) |
+| `2024_1119_120000` | accepted | 837 | 0.662 | 0.810 | 8 | [crop](adjusted-crops/2024_1119_120000.jpg) |
+| `2024_1130_120000` | accepted | 709 | 0.641 | 0.798 | 8 | [crop](adjusted-crops/2024_1130_120000.jpg) |
+| `2024_1210_120000` | accepted | 854 | 0.643 | 0.799 | 8 | [crop](adjusted-crops/2024_1210_120000.jpg) |
+| `2024_1221_120000` | accepted | 676 | 0.642 | 0.799 | 8 | [crop](adjusted-crops/2024_1221_120000.jpg) |
+| `2024_1231_120000` | accepted | 837 | 0.660 | 0.809 | 8 | [crop](adjusted-crops/2024_1231_120000.jpg) |
+| `2025_0110_120000` | accepted | 741 | 0.493 | 0.671 | 7 | [crop](adjusted-crops/2025_0110_120000.jpg) |
+| `2025_0120_060000` | rejected |  | 0.475 | 0.000 | 8 |  |
+| `2025_0202_120000` | accepted | -32 | 0.507 | 0.723 | 8 | [crop](adjusted-crops/2025_0202_120000.jpg) |
+| `2025_0212_120000` | accepted | 451 | 0.745 | 0.857 | 8 | [crop](adjusted-crops/2025_0212_120000.jpg) |
+| `2025_0222_120000` | accepted | 660 | 0.581 | 0.746 | 8 | [crop](adjusted-crops/2025_0222_120000.jpg) |
+| `2025_0304_120000` | accepted | 709 | 0.630 | 0.767 | 7 | [crop](adjusted-crops/2025_0304_120000.jpg) |
+| `2025_0315_120000` | accepted | -3334 | 0.559 | 0.752 | 8 | [crop](adjusted-crops/2025_0315_120000.jpg) |
+| `2025_0325_120000` | accepted | 16 | 0.796 | 0.885 | 8 | [crop](adjusted-crops/2025_0325_120000.jpg) |
+| `2025_0405_120000` | accepted | -966 | 0.770 | 0.871 | 8 | [crop](adjusted-crops/2025_0405_120000.jpg) |
+| `2025_0415_120000` | accepted | -370 | 0.758 | 0.864 | 8 | [crop](adjusted-crops/2025_0415_120000.jpg) |
+| `2025_0426_120000` | accepted | -612 | 0.666 | 0.812 | 8 | [crop](adjusted-crops/2025_0426_120000.jpg) |
+| `2025_0507_120000` | accepted | 451 | 0.668 | 0.795 | 8 | [crop](adjusted-crops/2025_0507_120000.jpg) |
+| `2025_0517_120000` | accepted | 854 | 0.581 | 0.764 | 8 | [crop](adjusted-crops/2025_0517_120000.jpg) |
+| `2025_0527_120000` | accepted | 660 | 0.756 | 0.863 | 8 | [crop](adjusted-crops/2025_0527_120000.jpg) |
+| `2025_0608_120000` | accepted | 660 | 0.722 | 0.844 | 8 | [crop](adjusted-crops/2025_0608_120000.jpg) |
+| `2025_0623_120000` | accepted | -387 | 0.718 | 0.842 | 8 | [crop](adjusted-crops/2025_0623_120000.jpg) |
+| `2025_0710_120000` | rejected |  | 0.446 | 0.000 | 6 |  |
+| `2025_0727_120000` | accepted | 644 | 0.723 | 0.826 | 8 | [crop](adjusted-crops/2025_0727_120000.jpg) |
+| `2025_0807_120000` | accepted | 644 | 0.685 | 0.785 | 8 | [crop](adjusted-crops/2025_0807_120000.jpg) |
+| `2025_0817_120000` | accepted | -48 | 0.738 | 0.852 | 8 | [crop](adjusted-crops/2025_0817_120000.jpg) |
+| `2025_0827_120000` | accepted | 708 | 0.696 | 0.829 | 8 | [crop](adjusted-crops/2025_0827_120000.jpg) |
+| `2025_0906_000000` | accepted | 692 | 0.508 | 0.705 | 8 | [crop](adjusted-crops/2025_0906_000000.jpg) |
+| `2025_0918_120000` | accepted | 708 | 0.732 | 0.849 | 8 | [crop](adjusted-crops/2025_0918_120000.jpg) |
+| `2025_0929_180000` | accepted | 708 | 0.554 | 0.749 | 8 | [crop](adjusted-crops/2025_0929_180000.jpg) |
+| `2025_1009_120000` | accepted | 708 | 0.645 | 0.782 | 8 | [crop](adjusted-crops/2025_1009_120000.jpg) |
+| `2025_1019_120000` | accepted | 708 | 0.658 | 0.789 | 8 | [crop](adjusted-crops/2025_1019_120000.jpg) |
+| `2025_1031_120000` | accepted | 692 | 0.661 | 0.790 | 8 | [crop](adjusted-crops/2025_1031_120000.jpg) |
+| `2025_1111_120000` | accepted | 692 | 0.670 | 0.796 | 8 | [crop](adjusted-crops/2025_1111_120000.jpg) |
+| `2025_1122_120000` | accepted | 692 | 0.642 | 0.799 | 8 | [crop](adjusted-crops/2025_1122_120000.jpg) |
+| `2025_1206_120000` | accepted | 725 | 0.644 | 0.781 | 8 | [crop](adjusted-crops/2025_1206_120000.jpg) |
+| `2025_1216_120000` | accepted | 692 | 0.640 | 0.797 | 8 | [crop](adjusted-crops/2025_1216_120000.jpg) |
+| `2025_1228_120000` | accepted | 692 | 0.667 | 0.813 | 8 | [crop](adjusted-crops/2025_1228_120000.jpg) |
+| `2026_0107_120000` | accepted | 692 | 0.670 | 0.815 | 8 | [crop](adjusted-crops/2026_0107_120000.jpg) |
+| `2026_0117_120000` | accepted | 692 | 0.659 | 0.771 | 8 | [crop](adjusted-crops/2026_0117_120000.jpg) |
+| `2026_0127_120000` | accepted | 692 | 0.699 | 0.831 | 8 | [crop](adjusted-crops/2026_0127_120000.jpg) |
+| `2026_0207_120000` | accepted | 692 | 0.632 | 0.793 | 8 | [crop](adjusted-crops/2026_0207_120000.jpg) |
+| `2026_0217_120000` | accepted | 692 | 0.558 | 0.726 | 7 | [crop](adjusted-crops/2026_0217_120000.jpg) |
+| `2026_0303_120000` | accepted | 692 | 0.670 | 0.815 | 8 | [crop](adjusted-crops/2026_0303_120000.jpg) |
+| `2026_0313_120000` | rejected |  | 0.292 | 0.000 | 7 |  |
+| `2026_0324_120000` | accepted | 692 | 0.671 | 0.815 | 8 | [crop](adjusted-crops/2026_0324_120000.jpg) |
+| `2026_0403_120000` | accepted | 692 | 0.739 | 0.853 | 8 | [crop](adjusted-crops/2026_0403_120000.jpg) |
+| `2026_0413_120000` | accepted | 692 | 0.656 | 0.807 | 8 | [crop](adjusted-crops/2026_0413_120000.jpg) |
+| `2026_0423_120000` | accepted | 692 | 0.694 | 0.828 | 8 | [crop](adjusted-crops/2026_0423_120000.jpg) |
+| `2026_0504_120000` | accepted | 692 | 0.756 | 0.863 | 8 | [crop](adjusted-crops/2026_0504_120000.jpg) |
+| `2026_0514_120000` | accepted | 0 | 0.745 | 0.857 | 8 | [crop](adjusted-crops/2026_0514_120000.jpg) |
+| `2026_0524_120000` | rejected |  | 0.229 | 0.000 | 5 |  |
+| `2026_0603_120000` | accepted | 692 | 0.712 | 0.838 | 8 | [crop](adjusted-crops/2026_0603_120000.jpg) |
+| `2026_0614_120000` | accepted | 692 | 0.728 | 0.847 | 8 | [crop](adjusted-crops/2026_0614_120000.jpg) |
+| `2026_0624_120000` | accepted | 692 | 0.692 | 0.827 | 8 | [crop](adjusted-crops/2026_0624_120000.jpg) |
+| `2026_0708_120000` | accepted | 692 | 0.660 | 0.809 | 8 | [crop](adjusted-crops/2026_0708_120000.jpg) |
+| `2026_0718_120000` | accepted | 692 | 0.741 | 0.854 | 8 | [crop](adjusted-crops/2026_0718_120000.jpg) |
+| `2026_0729_120000` | accepted | 692 | 0.728 | 0.847 | 8 | [crop](adjusted-crops/2026_0729_120000.jpg) |
+| `2026_0808_120000` | accepted | 692 | 0.717 | 0.841 | 8 | [crop](adjusted-crops/2026_0808_120000.jpg) |
+| `2026_0818_120000` | accepted | 692 | 0.724 | 0.845 | 8 | [crop](adjusted-crops/2026_0818_120000.jpg) |

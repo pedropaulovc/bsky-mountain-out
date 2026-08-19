@@ -8,15 +8,6 @@ import {
  resize,
  SamplingFilter,
 } from "@cf-wasm/photon/node";
-import { frameFromId, thumbnailAssetUrl } from "../src/frames";
-import {
- PANOCAM_ALIGNMENT_FEATURE_HEIGHT,
- PANOCAM_ALIGNMENT_FEATURE_WIDTH,
- buildPanoramaSignature,
- circularShiftRgba,
- findPanoramaAlignment,
-} from "../src/panorama-alignment";
-import type { PanoramaAlignment, PanoramaSignature } from "../src/panorama-alignment";
 import {
  PANOCAM_CAMERA_URL,
  PANOCAM_OUTPUT_HEIGHT,
@@ -25,17 +16,32 @@ import {
  PANOCAM_RAINIER_CROP_LEFT,
  PANOCAM_RAINIER_CROP_TOP,
  PANOCAM_RAINIER_CROP_WIDTH,
+ PANOCAM_SLICE_HEIGHT,
+ PANOCAM_SLICE_INDICES,
+ PANOCAM_SLICE_WIDTH,
+ frameFromId,
+ sliceAssetUrl,
+ thumbnailAssetUrl,
 } from "../src/frames";
+import {
+ PANOCAM_ALIGNMENT_FEATURE_HEIGHT,
+ PANOCAM_ALIGNMENT_FEATURE_WIDTH,
+ assembleRgbaSlices,
+ buildPanoramaSignature,
+ circularShiftRgba,
+ findPanoramaAlignment,
+} from "../src/panorama-alignment";
+import type { PanoramaAlignment, PanoramaSignature, RgbaImageBuffer } from "../src/panorama-alignment";
+import type { Frame } from "../src/types";
 
-const DEFAULT_SAMPLE = "reports/panorama-clusters-2026-08-18-final/sample.json";
+const DEFAULT_SAMPLE = "reports/panorama-alignment-2026-08-18/sample-input.json";
 const DEFAULT_CACHE = "reports/panorama-clusters-2026-08-18-final";
 const DEFAULT_OUTPUT = "reports/panorama-alignment-2026-08-18";
 const DEFAULT_REFERENCE = "assets/panocam-alignment-reference.jpg";
-const MAX_CONCURRENT_THUMBNAILS = 12;
+const MAX_CONCURRENT_THUMBNAILS = 4;
 const REQUEST_TIMEOUT_MS = 30_000;
 const JPEG_QUALITY = 90;
 const CREDIT_STRIP_HEIGHT = 24;
-
 interface Sample {
  frameId: string;
  capturedAt: string;
@@ -62,6 +68,65 @@ async function fetchBytes(url: string): Promise<Uint8Array> {
  const bytes = new Uint8Array(await response.arrayBuffer());
  if (bytes.byteLength === 0) throw new Error(`${url} returned an empty body`);
  return bytes;
+}
+
+async function readOptional(path: string): Promise<Uint8Array | undefined> {
+ try {
+  return new Uint8Array(await readFile(path));
+ } catch {
+  return undefined;
+ }
+}
+
+function normalizePanoramaSlice(source: PhotonImage): PhotonImage {
+ const width = source.get_width();
+ const height = source.get_height();
+ if (height === PANOCAM_SLICE_HEIGHT && width <= PANOCAM_SLICE_WIDTH) return source;
+ const normalized = resize(
+  source,
+  Math.min(width, PANOCAM_SLICE_WIDTH),
+  PANOCAM_SLICE_HEIGHT,
+  SamplingFilter.Triangle,
+ );
+ source.free();
+ return normalized;
+}
+
+async function ensurePanoramaCache(
+ frame: Frame,
+ cacheRoot: string,
+): Promise<{ panoramaPath: string; slice16Path: string }> {
+ const rawDir = join(cacheRoot, "raw", frame.id);
+ const panoramaDir = join(cacheRoot, "panoramas");
+ const panoramaPath = join(panoramaDir, `${frame.id}.jpg`);
+ const slicePaths = PANOCAM_SLICE_INDICES.map((index) => join(rawDir, `slice${index}.jpg`));
+ await mkdir(rawDir, { recursive: true });
+ await mkdir(panoramaDir, { recursive: true });
+ const encodedSlices = await Promise.all(slicePaths.map(async (path, index) => {
+  const cached = await readOptional(path);
+  if (cached) return cached;
+  const downloaded = await fetchBytes(sliceAssetUrl(frame, index));
+  await writeFile(path, downloaded);
+  return downloaded;
+ }));
+
+ if (!(await readOptional(panoramaPath))) {
+  const buffers: RgbaImageBuffer[] = [];
+  for (const encoded of encodedSlices) {
+   const source = normalizePanoramaSlice(PhotonImage.new_from_byteslice(encoded));
+   buffers.push({
+    pixels: new Uint8Array(source.get_raw_pixels()),
+    width: source.get_width(),
+    height: source.get_height(),
+   });
+   source.free();
+  }
+  const assembled = assembleRgbaSlices(buffers);
+  const panorama = new PhotonImage(assembled.pixels, assembled.width, assembled.height);
+  await writeFile(panoramaPath, panorama.get_bytes_jpeg(78));
+  panorama.free();
+ }
+ return { panoramaPath, slice16Path: slicePaths[slicePaths.length - 1] };
 }
 
 async function readReferenceBytes(reference: string): Promise<Uint8Array> {
@@ -102,7 +167,7 @@ function creditTimestamp(capturedAt: Date): string {
  return `${values.month} ${values.day} ${values.year} ${values.hour}:${values.minute}${dayPeriod ? ` ${dayPeriod}` : ""} PT`;
 }
 
-function addCredit(image: PhotonImage, frameId: string, capturedAt: string): PhotonImage {
+function addCredit(image: PhotonImage, frame: Frame): PhotonImage {
  const width = image.get_width();
  const height = image.get_height();
  const pixels = new Uint8Array(image.get_raw_pixels());
@@ -117,7 +182,7 @@ function addCredit(image: PhotonImage, frameId: string, capturedAt: string): Pho
   }
  }
  const credited = new PhotonImage(pixels, width, height);
- const watermark = `Image (c) Space Needle LLC | Extracted from Space Needle PanoCam | ${PANOCAM_CAMERA_URL} | ${creditTimestamp(new Date(capturedAt))}`;
+ const watermark = `Image (c) Space Needle LLC | Extracted from Space Needle PanoCam | ${PANOCAM_CAMERA_URL} | ${creditTimestamp(frame.capturedAt)}`;
  draw_text_with_color(credited, watermark, width < 800 ? 4 : 18, Math.max(20, height - 20), width < 800 ? 8 : 16, new Rgba(255, 255, 255, 255));
  return credited;
 }
@@ -146,8 +211,8 @@ async function processFrame(
   thumbnail.free();
  }
 
- const rawSlice16 = join(cacheRoot, "raw", sample.frameId, "slice16.jpg");
- const sourceWidth = 16 * 512 + await imageWidth(rawSlice16);
+ const { panoramaPath, slice16Path } = await ensurePanoramaCache(frame, cacheRoot);
+ const sourceWidth = (PANOCAM_SLICE_INDICES.length - 1) * PANOCAM_SLICE_WIDTH + await imageWidth(slice16Path);
  const cropPath = `adjusted-crops/${sample.frameId}.jpg`;
  if (!alignment.accepted) {
   return {
@@ -160,7 +225,6 @@ async function processFrame(
   };
  }
 
- const panoramaPath = join(cacheRoot, "panoramas", `${sample.frameId}.jpg`);
  const panorama = PhotonImage.new_from_byteslice(new Uint8Array(await readFile(panoramaPath)));
  let exact: PhotonImage | undefined;
  let aligned: PhotonImage | undefined;
@@ -194,7 +258,7 @@ async function processFrame(
    cropTop + PANOCAM_RAINIER_CROP_HEIGHT,
   );
   framed = resize(cropped, PANOCAM_OUTPUT_WIDTH, PANOCAM_OUTPUT_HEIGHT, SamplingFilter.Triangle);
-  credited = addCredit(framed, sample.frameId, sample.capturedAt);
+  credited = addCredit(framed, frame);
   await writeFile(join(outputRoot, cropPath), credited.get_bytes_jpeg(JPEG_QUALITY));
   alignment.appliedShiftPx = appliedShiftPx;
   return {
@@ -288,7 +352,7 @@ function writeReport(
   "",
   "## Summary",
   "",
-  `- Sampled timestamps: **${rows.length}** (the existing evenly spaced three-year manifest).`,
+  `- Sampled timestamps: **${rows.length}** (evenly spaced among available daily candidates from 2023-08-18 through 2026-08-18).`,
   `- Accepted alignments: **${accepted.length}**`,
   `- Rejected alignments: **${rejected.length}**`,
   `- Processing errors: **${errors.length}**`,

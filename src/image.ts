@@ -210,10 +210,18 @@ async function alignStitchedPanorama(
  referenceUrl: string,
  timeoutMs: number,
 ): Promise<{ image: PhotonImage; alignment: PanoramaAlignment }> {
- const [reference, current] = await Promise.all([
+ const settled = await Promise.allSettled([
   fetchAlignmentImage(fetchImpl, referenceUrl, timeoutMs, "alignment reference"),
   fetchAlignmentImage(fetchImpl, thumbnailAssetUrl(frame), timeoutMs, "alignment thumbnail"),
  ]);
+ const reference = settled[0].status === "fulfilled" ? settled[0].value : undefined;
+ const current = settled[1].status === "fulfilled" ? settled[1].value : undefined;
+ if (!reference || !current) {
+  reference?.free();
+  current?.free();
+  const failure = settled.find((result): result is PromiseRejectedResult => result.status === "rejected");
+  throw failure?.reason instanceof Error ? failure.reason : new Error("PanoCam alignment asset fetch failed");
+ }
  try {
   const alignment = findPanoramaAlignment(
    signatureForAlignment(reference),
