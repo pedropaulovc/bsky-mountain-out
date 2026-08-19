@@ -5,6 +5,13 @@ import { discoverLatestFrame, frameFromId } from "./frames";
 import { buildImage, buildReferenceSheet, loadReferenceImages } from "./image";
 import { postImageToBluesky } from "./bsky";
 import { createTickLogger, newTickId } from "./log";
+import type { TickLogger } from "./log";
+import {
+  PanoramaAlignmentRejectedError,
+  problemDetailsForError,
+  problemResponse,
+  type ProblemDetails,
+} from "./problems";
 import type {
   BotState,
   Classification,
@@ -29,6 +36,7 @@ interface TickOptions {
   referenceOnly?: boolean;
   bypassDaylight?: boolean;
   forcePost?: boolean;
+  logger?: TickLogger;
 }
 
 interface TickResult {
@@ -177,8 +185,8 @@ export async function runTick(env: Env, options: TickOptions = {}): Promise<Tick
   if (!(now instanceof Date) || !Number.isFinite(now.getTime())) {
     throw new RangeError("Tick time must be a valid Date");
   }
-  const tickId = newTickId();
-  const tick = createTickLogger(tickId);
+  const tick = options.logger ?? createTickLogger(newTickId());
+  const tickId = tick.tickId;
   const state = await readState(env);
   if (!options.bypassDaylight && !isOperationalHour(now)) {
     tick.log("daylight-gated", { event: "daylight_gate", status: "skipped" });
@@ -340,6 +348,20 @@ function jsonResponse(data: unknown, status = 200): Response {
     status,
     headers: { "Content-Type": "application/json; charset=utf-8" },
   });
+}
+function requestProblemResponse(request: Request, problem: ProblemDetails): Response {
+  return problemResponse({
+    ...problem,
+    instance: new URL(request.url).pathname,
+  });
+}
+
+function requestErrorResponse(
+  request: Request,
+  error: unknown,
+  fallback: { status: number; title: string },
+): Response {
+  return requestProblemResponse(request, problemDetailsForError(error, fallback));
 }
 function htmlEscape(value: unknown): string {
   return String(value).replace(/[&<>"']/g, (character) => ({
@@ -544,10 +566,31 @@ async function forcePostResponse(env: Env, request: Request): Promise<Response> 
   }
   const atValue = formAt ?? url.searchParams.get("at");
   const frameId = formFrame ?? url.searchParams.get("frame") ?? undefined;
-  if (!atValue) return jsonResponse({ error: "missing_at" }, 400);
+  if (!atValue) {
+    return requestProblemResponse(request, {
+      type: "about:blank",
+      title: "Bad Request",
+      status: 400,
+      detail: "The 'at' timestamp is required.",
+    });
+  }
   const requestedAt = new Date(atValue);
-  if (!Number.isFinite(requestedAt.getTime())) return jsonResponse({ error: "invalid_at" }, 400);
-  if (!postingEnabled(env)) return jsonResponse({ error: "posting_disabled" }, 503);
+  if (!Number.isFinite(requestedAt.getTime())) {
+    return requestProblemResponse(request, {
+      type: "about:blank",
+      title: "Bad Request",
+      status: 400,
+      detail: "The 'at' timestamp must be a valid date.",
+    });
+  }
+  if (!postingEnabled(env)) {
+    return requestProblemResponse(request, {
+      type: "about:blank",
+      title: "Service Unavailable",
+      status: 503,
+      detail: "Posting is disabled.",
+    });
+  }
   try {
     const result = await runTick(env, {
       now: requestedAt,
@@ -559,13 +602,16 @@ async function forcePostResponse(env: Env, request: Request): Promise<Response> 
       bypassDaylight: true,
     });
     if (!result.posted) {
-      return jsonResponse({
-        error: "force_post_not_created",
-        status: result.status,
+      return requestProblemResponse(request, {
+        type: "urn:bsky-mountain-out:problem:force-post-not-created",
+        title: "Force post not created",
+        status: 502,
+        detail: "The force-post pipeline completed without creating a post.",
+        resultStatus: result.status,
         frame: result.frame?.id,
         classification: result.classification,
         decision: result.decision,
-      }, 502);
+      });
     }
     return jsonResponse({
       status: "posted",
@@ -577,13 +623,28 @@ async function forcePostResponse(env: Env, request: Request): Promise<Response> 
       alignment: result.image?.alignment,
     }, 201);
   } catch (error) {
-    return jsonResponse({ error: errorMessage(error) }, 502);
+    return requestErrorResponse(request, error, { status: 502, title: "Bad Gateway" });
   }
 }
 
 export default {
   async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
-    await runTick(env, { persist: true });
+    const tick = createTickLogger();
+    try {
+      await runTick(env, { persist: true, logger: tick });
+    } catch (error) {
+      const problem = problemDetailsForError(error, {
+        status: 502,
+        title: "Scheduled pipeline failed",
+      });
+      tick.error("scheduled-failed", {
+        event: "scheduled_failed",
+        route: "scheduled",
+        ...problem,
+      });
+      if (error instanceof PanoramaAlignmentRejectedError) return;
+      throw error;
+    }
   },
 
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -606,20 +667,53 @@ export default {
     }
 
     if (url.pathname === "/post") {
-      if (request.method !== "POST") return jsonResponse({ error: "method_not_allowed" }, 405);
-      if (!authorized(request, env)) return jsonResponse({ error: "unauthorized" }, 401);
+      if (request.method !== "POST") {
+        return requestProblemResponse(request, {
+          type: "about:blank",
+          title: "Method Not Allowed",
+          status: 405,
+          detail: "Only POST is supported for /post.",
+        });
+      }
+      if (!authorized(request, env)) {
+        return requestProblemResponse(request, {
+          type: "about:blank",
+          title: "Unauthorized",
+          status: 401,
+          detail: "A valid bearer token is required.",
+        });
+      }
       return forcePostResponse(env, request);
     }
 
-    if (!authorized(request, env)) return jsonResponse({ error: "unauthorized" }, 401);
+    if (!authorized(request, env)) {
+      return requestProblemResponse(request, {
+        type: "about:blank",
+        title: "Unauthorized",
+        status: 401,
+        detail: "A valid bearer token is required.",
+      });
+    }
 
     if (url.pathname === "/status") {
       return jsonResponse(await readState(env));
     }
     if (url.pathname !== "/check") {
-      return jsonResponse({ error: "not_found" }, 404);
+      return requestProblemResponse(request, {
+        type: "about:blank",
+        title: "Not Found",
+        status: 404,
+        detail: "The requested route does not exist.",
+      });
     }
-    if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed" }, 405);
+    if (request.method !== "GET") {
+      return requestProblemResponse(request, {
+        type: "about:blank",
+        title: "Method Not Allowed",
+        status: 405,
+        detail: "Only GET is supported for /check.",
+      });
+    }
 
     try {
       const rawOnly = url.searchParams.get("raw") === "1";
@@ -653,7 +747,7 @@ export default {
         state: result.state,
       });
     } catch (error) {
-      return jsonResponse({ error: errorMessage(error) }, 502);
+      return requestErrorResponse(request, error, { status: 502, title: "Bad Gateway" });
     }
   },
 };

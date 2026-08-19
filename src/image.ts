@@ -33,6 +33,7 @@ import {
  type PanoramaAlignment,
  type PanoramaSignature,
 } from "./panorama-alignment";
+import { PanoramaAlignmentRejectedError } from "./problems";
 
 /** Output and source geometry are deliberately fixed for predictable bot posts. */
 export const PANOCAM_JPEG_QUALITY = 90;
@@ -228,11 +229,7 @@ async function alignStitchedPanorama(
    signatureForAlignment(current),
   );
   if (!alignment.accepted) {
-   throw new Error(
-    `PanoCam panorama alignment rejected: score=${alignment.score.toFixed(3)} ` +
-    `margin=${alignment.margin.toFixed(3)} bandDisagreement=${alignment.bandDisagreementPx.toFixed(1)} ` +
-    `inlierTiles=${alignment.inlierTileCount}`,
-   );
+   throw new PanoramaAlignmentRejectedError(alignment);
   }
   const appliedShiftPx = Math.round(
    alignment.shiftFeaturePx * source.get_width() / PANOCAM_ALIGNMENT_FEATURE_WIDTH,

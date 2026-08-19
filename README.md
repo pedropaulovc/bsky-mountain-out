@@ -61,6 +61,15 @@ curl -H "Authorization: Bearer $DEV_TOKEN" "http://localhost:8787/check?raw=1"
 - `GET /draft?at=...` — derives the nearest available frame at that timestamp, runs without posting, and returns an HTML draft with the image, proposed text, decision, and alt text
 - `POST /post?at=...` — force-posts the model-evaluated frame immediately, bypassing transition/heartbeat gating; requires the dev token and `POSTING_ENABLED=true`
 
+JSON API pipeline failures use RFC 9457 `application/problem+json` responses. A
+PanoCam frame that cannot pass panorama alignment is reported as `502 Bad
+Gateway`: the request is valid, but the upstream camera content is not usable
+for this pipeline. The problem `type` is
+`urn:bsky-mountain-out:problem:panorama-alignment-rejected`, with alignment
+metrics in the `alignment` extension. Scheduled invocations have no HTTP
+response; they emit the same structured problem fields and skip the rejected
+frame instead of surfacing a generic invocation exception.
+
 Use `/post` only for an intentional one-off post. It accepts an optional `frame` query parameter when a specific known frame must be posted:
 
 ```sh
