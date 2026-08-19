@@ -10,12 +10,12 @@ import type { Frame, ImageArtifact, ImageMode } from "./types";
 import {
  PANOCAM_ALIGNMENT_REFERENCE_URL,
  PANOCAM_CAMERA_URL,
- PANOCAM_RAINIER_CROP_HEIGHT,
- PANOCAM_RAINIER_CROP_LEFT,
- PANOCAM_RAINIER_CROP_TOP,
- PANOCAM_RAINIER_CROP_WIDTH,
  PANOCAM_OUTPUT_HEIGHT,
  PANOCAM_OUTPUT_WIDTH,
+ PANOCAM_RAINIER_POSTCARD_HEIGHT,
+ PANOCAM_RAINIER_POSTCARD_TOP,
+ PANOCAM_RAINIER_POSTCARD_WIDTH,
+ PANOCAM_RAINIER_VIEW_POSITION,
  PANOCAM_RAW_SLICE_INDEX,
  PANOCAM_SLICE_HEIGHT,
  PANOCAM_SLICE_WIDTH,
@@ -38,8 +38,8 @@ import {
 export const PANOCAM_JPEG_QUALITY = 90;
 export const PANOCAM_CREDIT_STRIP_HEIGHT = 24;
 export const DEFAULT_IMAGE_REQUEST_TIMEOUT_MS = 10_000;
-export const POSTCARD_CROP_TOP = PANOCAM_RAINIER_CROP_TOP;
-export const POSTCARD_CROP_HEIGHT = PANOCAM_RAINIER_CROP_HEIGHT;
+export const POSTCARD_CROP_TOP = PANOCAM_RAINIER_POSTCARD_TOP;
+export const POSTCARD_CROP_HEIGHT = PANOCAM_RAINIER_POSTCARD_HEIGHT;
 
 export interface BuildImageOptions {
  /** Injectable image fetch implementation for tests and development routes. */
@@ -322,11 +322,9 @@ export async function buildImage(
  if (mode !== "stitched" && mode !== "postcard" && mode !== "raw-slice" && mode !== "raw-slice-unwatermarked") {
   throw new Error(`Unsupported image mode: ${mode}`);
  }
-
  if (mode === "stitched") {
   let joined: PhotonImage | undefined;
   let cropped: PhotonImage | undefined;
-  let framed: PhotonImage | undefined;
   let output: PhotonImage | undefined;
   let alignment: PanoramaAlignment | undefined;
   try {
@@ -343,26 +341,12 @@ export async function buildImage(
    const cropLeft = Math.max(
     0,
     Math.min(
-     joined.get_width() - PANOCAM_RAINIER_CROP_WIDTH,
-     PANOCAM_RAINIER_CROP_LEFT,
+     joined.get_width() - PANOCAM_OUTPUT_WIDTH,
+     PANOCAM_RAINIER_VIEW_POSITION - PANOCAM_OUTPUT_WIDTH / 2,
     ),
    );
-   const cropTop = Math.max(
-    0,
-    Math.min(
-     joined.get_height() - PANOCAM_RAINIER_CROP_HEIGHT,
-     PANOCAM_RAINIER_CROP_TOP,
-    ),
-   );
-   cropped = crop(
-    joined,
-    cropLeft,
-    cropTop,
-    cropLeft + PANOCAM_RAINIER_CROP_WIDTH,
-    cropTop + PANOCAM_RAINIER_CROP_HEIGHT,
-   );
-   framed = resize(cropped, PANOCAM_OUTPUT_WIDTH, PANOCAM_OUTPUT_HEIGHT, SamplingFilter.Triangle);
-   output = addCredit(framed, frame);
+   cropped = crop(joined, cropLeft, 0, cropLeft + PANOCAM_OUTPUT_WIDTH, PANOCAM_OUTPUT_HEIGHT);
+   output = addCredit(cropped, frame);
    const bytes = output.get_bytes_jpeg(PANOCAM_JPEG_QUALITY);
    return {
     bytes: new Uint8Array(bytes),
@@ -373,7 +357,6 @@ export async function buildImage(
    };
   } finally {
    output?.free();
-   framed?.free();
    cropped?.free();
    joined?.free();
   }
@@ -389,7 +372,7 @@ export async function buildImage(
     normalized.image,
     0,
     POSTCARD_CROP_TOP,
-    PANOCAM_SLICE_WIDTH,
+    PANOCAM_RAINIER_POSTCARD_WIDTH,
     POSTCARD_CROP_TOP + POSTCARD_CROP_HEIGHT,
    );
    output = addCredit(cropped, frame);
@@ -397,7 +380,7 @@ export async function buildImage(
    return {
     bytes: new Uint8Array(bytes),
     contentType: "image/jpeg",
-    width: PANOCAM_SLICE_WIDTH,
+    width: PANOCAM_RAINIER_POSTCARD_WIDTH,
     height: POSTCARD_CROP_HEIGHT,
    };
   } finally {

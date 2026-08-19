@@ -12,10 +12,7 @@ import {
  PANOCAM_CAMERA_URL,
  PANOCAM_OUTPUT_HEIGHT,
  PANOCAM_OUTPUT_WIDTH,
- PANOCAM_RAINIER_CROP_HEIGHT,
- PANOCAM_RAINIER_CROP_LEFT,
- PANOCAM_RAINIER_CROP_TOP,
- PANOCAM_RAINIER_CROP_WIDTH,
+ PANOCAM_RAINIER_VIEW_POSITION,
  PANOCAM_SLICE_HEIGHT,
  PANOCAM_SLICE_INDICES,
  PANOCAM_SLICE_WIDTH,
@@ -229,7 +226,6 @@ async function processFrame(
  let exact: PhotonImage | undefined;
  let aligned: PhotonImage | undefined;
  let cropped: PhotonImage | undefined;
- let framed: PhotonImage | undefined;
  let credited: PhotonImage | undefined;
  try {
   exact = panorama.get_width() === sourceWidth
@@ -244,21 +240,10 @@ async function processFrame(
   aligned = new PhotonImage(shiftedPixels, sourceWidth, exact.get_height());
   const cropLeft = Math.max(
    0,
-   Math.min(sourceWidth - PANOCAM_RAINIER_CROP_WIDTH, PANOCAM_RAINIER_CROP_LEFT),
+   Math.min(sourceWidth - PANOCAM_OUTPUT_WIDTH, PANOCAM_RAINIER_VIEW_POSITION - PANOCAM_OUTPUT_WIDTH / 2),
   );
-  const cropTop = Math.max(
-   0,
-   Math.min(aligned.get_height() - PANOCAM_RAINIER_CROP_HEIGHT, PANOCAM_RAINIER_CROP_TOP),
-  );
-  cropped = crop(
-   aligned,
-   cropLeft,
-   cropTop,
-   cropLeft + PANOCAM_RAINIER_CROP_WIDTH,
-   cropTop + PANOCAM_RAINIER_CROP_HEIGHT,
-  );
-  framed = resize(cropped, PANOCAM_OUTPUT_WIDTH, PANOCAM_OUTPUT_HEIGHT, SamplingFilter.Triangle);
-  credited = addCredit(framed, frame);
+  cropped = crop(aligned, cropLeft, 0, cropLeft + PANOCAM_OUTPUT_WIDTH, PANOCAM_OUTPUT_HEIGHT);
+  credited = addCredit(cropped, frame);
   await writeFile(join(outputRoot, cropPath), credited.get_bytes_jpeg(JPEG_QUALITY));
   alignment.appliedShiftPx = appliedShiftPx;
   return {
@@ -271,7 +256,6 @@ async function processFrame(
   };
  } finally {
   credited?.free();
-  framed?.free();
   cropped?.free();
   aligned?.free();
   if (exact && exact !== panorama) exact.free();
@@ -364,7 +348,7 @@ function writeReport(
   "1. Fetch each frame's full-width `thumbnail.jpg`.",
   "2. Resize to a 512×96 structural representation and compare three vertical edge bands over all circular horizontal shifts.",
   "3. Require a score/margin gate, agreement between vertical bands, and at least four of eight inlier horizontal tiles.",
-  "4. Apply the measured shift to the true-width cached panorama, crop the canonical 512×384 Rainier window, resize it to 1440×1080, and add the production attribution strip.",
+  "4. Apply the measured shift to the true-width cached panorama, crop the native 1440×1080 Rainier-facing view, and add the production attribution strip without upscaling.",
   "",
   "## Final adjusted crops",
   "",
