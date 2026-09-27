@@ -17,7 +17,7 @@ describe("vision classification", () => {
   it("uses the documented OpenAI Responses image input shape", () => {
     const input = buildVisionInput(image, "Return strict JSON.");
     expect(input).toMatchObject({
-      model: "gpt-5.6-luna",
+      model: "gpt-6-luna",
       reasoning: { effort: "medium" },
       text: { format: { type: "json_schema", strict: true } },
     });
@@ -36,7 +36,7 @@ describe("vision classification", () => {
   it("turns a strict OpenAI response into explicit, bounded alt text", async () => {
     const result = await classifyImage(
       {
-        MODEL_ID: "gpt-5.6-luna",
+        MODEL_ID: "gpt-6-luna",
         OPENAI_API_KEY: "test-key",
         OPENAI_API_URL: "https://api.openai.test/v1",
         CLASSIFIER_REASONING_EFFORT: "medium",
@@ -46,7 +46,7 @@ describe("vision classification", () => {
         timestamp: new Date("2026-08-17T23:00:00.000Z"),
         fetcher: async (_input, init) => {
           const body = JSON.parse(String(init?.body));
-          expect(body.model).toBe("gpt-5.6-luna");
+          expect(body.model).toBe("gpt-6-luna");
           expect(body.reasoning.effort).toBe("medium");
           return Response.json({
             output: [{

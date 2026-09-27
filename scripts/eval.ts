@@ -37,13 +37,13 @@ function usage(): void {
 Required environment:
   OPENAI_API_KEY
 
-Models default to EVAL_MODELS, then MODEL_ID, then gpt-5.6-luna.
+Models default to EVAL_MODELS, then MODEL_ID, then gpt-6-luna.
 Labels with label:null are intentionally skipped until hand-labeled.`);
 }
 
 function parseArgs(): { labelsPath: string; models: string[]; limit?: number } {
   let labelsPath = process.env.LABELS_FILE ?? defaultLabelsPath;
-  let modelsValue = process.env.EVAL_MODELS ?? process.env.MODEL_IDS ?? process.env.MODEL_ID ?? "gpt-5.6-luna";
+  let modelsValue = process.env.EVAL_MODELS ?? process.env.MODEL_IDS ?? process.env.MODEL_ID ?? "gpt-6-luna";
   let limit: number | undefined;
 
   const args = process.argv.slice(2);

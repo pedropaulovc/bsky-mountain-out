@@ -78,7 +78,7 @@ export function buildVisionInput(
  additionalInput: Record<string, unknown> = {},
  referenceImages: readonly ImageArtifact[] = [],
  referenceLabels: readonly string[] = [],
- modelId = "gpt-5.6-luna",
+ modelId = "gpt-6-luna",
  reasoningEffort = DEFAULT_CLASSIFIER_EFFORT,
 ): Record<string, unknown> {
  const labels = referenceImages.map((_, index) => referenceLabels[index] ?? `REFERENCE ${index + 1}`);

@@ -18,7 +18,7 @@ Each image includes a visible source credit. Each Bluesky post includes descript
 ## Architecture
 
 - **Runtime:** Cloudflare Workers cron
-- **Vision:** OpenAI Responses API, configurable with `MODEL_ID` (default `gpt-5.6-luna`) and `CLASSIFIER_REASONING_EFFORT` (default `medium`)
+- **Vision:** OpenAI Responses API, configurable with `MODEL_ID` (default `gpt-6-luna`) and `CLASSIFIER_REASONING_EFFORT` (default `medium`)
 - **State:** Workers KV
 - **Image source:** Space Needle PanoCam CDN (`spaceneedle.com/webcam`)
 - **Posting:** three direct AT Protocol XRPC requests to `BSKY_SERVICE_URL` (production uses `https://ismtrainierout.selfhosted.social`); no Bluesky SDK
@@ -107,7 +107,7 @@ The three-year sample report can be regenerated with `npm exec tsx scripts/panor
 The classifier is the main risk because Rainier is a small horizon feature and vision models may rely on Seattle priors. Add reviewed archive examples to `scripts/labels.json`, then run:
 
 ```sh
-OPENAI_API_KEY=... npm run eval -- --models gpt-5.6-luna
+OPENAI_API_KEY=... npm run eval -- --models gpt-6-luna
 ```
 
 The evaluator reports per-model accuracy, confusion, precision, and recall. Do not deploy a model until clear, hazy, dawn/dusk, and no-mountain examples meet the desired accuracy threshold.
