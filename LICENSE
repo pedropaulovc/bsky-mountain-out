@@ -19,13 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-Scope and third-party materials
-
-This license applies to the original project code and documentation. It does
-not relicense third-party dependencies or Space Needle PanoCam photographs,
-reference images, or derived camera imagery, including such imagery under
-assets/ and reports/. Those materials remain subject to their respective
-owners' rights and any applicable licenses or terms. Preserve the camera
-attribution in README.md and all third-party license notices. No additional
-rights to third-party camera imagery are granted by this license.

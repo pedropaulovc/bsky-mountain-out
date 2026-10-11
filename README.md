@@ -174,3 +174,7 @@ The bot account should use an app password, not the primary Bluesky password. Th
 - Inspiration: [@IsMtRainierOut](https://x.com/ismtrainierout)
 
 This project does not copy the original service's watermarked timelapse images. It uses the Space Needle PanoCam CDN directly and stamps every normal output with source, timestamp, and bot attribution.
+
+## License
+
+Original project code and documentation are licensed under [MIT](LICENSE). Third-party dependencies and camera imagery retain their respective owners' rights; see [NOTICE](NOTICE). The MIT grant does not apply to Space Needle PanoCam photographs or derived camera imagery.
